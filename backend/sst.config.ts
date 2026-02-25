@@ -52,6 +52,11 @@ const createApi = (userPool: sst.aws.CognitoUserPool, client: CognitoUserPoolCli
     link: [userPool, client],
   })
 
+  api.route("GET /", {
+    handler: "src/index.handler",
+    link: [userPool, client],
+  })
+
   api.route("$default", {
     handler: "src/index.handler",
     link: [userPool, client],

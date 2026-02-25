@@ -28,6 +28,11 @@ authRoutes.post('/signin', async (c) => {
     const tokens = await signIn(validated)
     return successResponse(c, tokens)
   } catch (error) {
+    if (error instanceof Error) {
+      // 一時的にエラー名を返して原因を特定
+      return errorResponse(c, `${error.name}: ${error.message}`, 401)
+    }
+
     if (error instanceof Error && error.name === 'ZodError') {
       return errorResponse(c, 'Invalid input', 422)
     }
