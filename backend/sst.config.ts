@@ -2,13 +2,16 @@
 
 import { CognitoUserPoolClient } from "./.sst/platform/src/components/aws/cognito-user-pool-client";
 
-const createSite = () => {
+const createSite = (api: sst.aws.ApiGatewayV2) => {
   return new sst.aws.StaticSite("Site", {
     path: "../frontend",
     build: {
       command: "npm run build",
       output: "dist",
     },
+    environment: {
+      VITE_API_URL: api.url
+    }
   });
 };
 
@@ -33,7 +36,13 @@ const createUserPool = () => {
 }
 
 const createApi = (userPool: sst.aws.CognitoUserPool, client: CognitoUserPoolClient) => {
-  const api = new sst.aws.ApiGatewayV2("Api");
+  const api = new sst.aws.ApiGatewayV2("Api", {
+    cors: {
+      allowOrigins: ["*"],
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      allowHeaders: ["Content-Type", "Authorization"]
+    }
+  });
   const authorizer = api.addAuthorizer({
     name: "CognitoAuthorizer",
     jwt: {
@@ -65,6 +74,7 @@ const createApi = (userPool: sst.aws.CognitoUserPool, client: CognitoUserPoolCli
       jwt: { authorizer: authorizer.id }
     }
   });
+  return api
 }
 
 export default $config({
@@ -78,8 +88,8 @@ export default $config({
   },
 
   async run() {
-    createSite();
     const { userPool, client } = createUserPool();
-    createApi(userPool, client)
+    const api = createApi(userPool, client);
+    createSite(api);
   },
 });

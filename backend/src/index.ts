@@ -10,13 +10,6 @@ const app = new Hono()
 
 app.onError(errorHandler)
 
-app.use('/*', cors({
-  origin: '*',
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-  maxAge: 86400,
-}))
-
 app.get('/', (c) => {
   return c.json({
     success: true, data: {
