@@ -1,12 +1,4 @@
-import {
-	LimitExceededException,
-	NotAuthorizedException,
-	UserNotConfirmedException,
-	UserNotFoundException,
-} from "@aws-sdk/client-cognito-identity-provider";
 import { Hono } from "hono";
-import { auth } from "hono/utils/basic-auth";
-import { success } from "zod";
 import { errorResponse, successResponse } from "../lib/api-response";
 import { refreshTokens, signIn } from "./auth.service";
 import { refreshTokenSchema, signInSchema } from "./auth.validators";

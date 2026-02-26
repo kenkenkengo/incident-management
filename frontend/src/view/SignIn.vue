@@ -1,25 +1,25 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useAuthStore } from "@/stores/auth";
+import { useRouter } from "vue-router";
+const router = useRouter();
 
 const email = ref("");
 const password = ref("");
 
+const errorMessage = ref("");
+
 const authStore = useAuthStore();
 
 const handleSignIn = async () => {
-	const response = await authStore.signInAction(email.value, password.value);
-	console.log(response);
-
-	if (response.success) {
-		// Sign-in successful, you can redirect the user or show a success message
-		console.log("Sign-in successful");
-
-		// todo:routerで別のページに遷移
-	} else {
-		// Sign-in failed, you can show an error message
-		console.error("Sign-in failed:", response.error);
-	}
+  try {
+    errorMessage.value = "";
+    await authStore.signInAction(email.value, password.value);
+    router.push({ name: "dashboard" });
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error ? error.message : "サインインに失敗しました";
+  }
 };
 </script>
 
@@ -30,6 +30,8 @@ const handleSignIn = async () => {
     <input type="password" placeholder="Password" v-model="password" />
     <button type="submit">Sign In</button>
   </form>
+
+  <p v-if="errorMessage" style="color: red">{{ errorMessage }}</p>
 </template>
 
 <style scoped></style>
