@@ -1,11 +1,22 @@
 import { Hono } from "hono";
 import { handle } from "hono/aws-lambda";
 import { cors } from "hono/cors";
-import { success } from "zod";
+import { Resource } from "sst";
 import { authRoutes } from "./auth/auth.routes";
 import { errorHandler } from "./middleware/error-handler.middleware";
 
 const app = new Hono();
+
+const allowedOrigin = Resource.Site.url.replace(/\/$/, "");
+app.use(
+	"*",
+	cors({
+		origin: [allowedOrigin],
+		allowMethods: ["GET", "HEAD", "PUT", "POST", "DELETE", "PATCH"],
+		allowHeaders: ["Content-Type", "Authorization"],
+		maxAge: 86400,
+	}),
+)
 
 app.onError(errorHandler);
 

@@ -9,6 +9,9 @@ const createSite = (api: sst.aws.ApiGatewayV2) => {
 			command: "npm run build",
 			output: "dist",
 		},
+		dev: {
+			url: "http://localhost:5173",
+		},
 		environment: {
 			VITE_API_URL: api.url,
 		},
@@ -40,11 +43,7 @@ const createApi = (
 	client: CognitoUserPoolClient,
 ) => {
 	const api = new sst.aws.ApiGatewayV2("Api", {
-		cors: {
-			allowOrigins: ["*"],
-			allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-			allowHeaders: ["Content-Type", "Authorization"],
-		},
+		cors: false
 	});
 	const authorizer = api.addAuthorizer({
 		name: "CognitoAuthorizer",
@@ -54,26 +53,43 @@ const createApi = (
 		},
 	});
 
+	return { api, authorizer };
+};
+
+const addRoutes = (
+	api: sst.aws.ApiGatewayV2,
+	authorizer: ReturnType<typeof api.addAuthorizer>,
+	userPool: sst.aws.CognitoUserPool,
+	client: CognitoUserPoolClient,
+	site: sst.aws.StaticSite,
+) => {
+	const defaultLink = [userPool, client, site];
+
 	api.route("POST /auth/signin", {
 		handler: "src/index.handler",
-		link: [userPool, client],
+		link: defaultLink,
 	});
 
 	api.route("POST /auth/refresh", {
 		handler: "src/index.handler",
-		link: [userPool, client],
+		link: defaultLink,
 	});
 
 	api.route("GET /", {
 		handler: "src/index.handler",
-		link: [userPool, client],
+		link: defaultLink,
+	});
+
+	api.route("OPTIONS /{proxy+}", {
+		handler: "src/index.handler",
+		link: defaultLink,
 	});
 
 	api.route(
 		"$default",
 		{
 			handler: "src/index.handler",
-			link: [userPool, client],
+			link: defaultLink,
 		},
 		{
 			auth: {
@@ -81,8 +97,7 @@ const createApi = (
 			},
 		},
 	);
-	return api;
-};
+}
 
 export default $config({
 	app(input) {
@@ -96,7 +111,8 @@ export default $config({
 
 	async run() {
 		const { userPool, client } = createUserPool();
-		const api = createApi(userPool, client);
-		createSite(api);
+		const { api, authorizer } = createApi(userPool, client);
+		const site = createSite(api);
+		addRoutes(api, authorizer, userPool, client, site);
 	},
 });
