@@ -11,7 +11,7 @@ Generosity Incident Management — a monorepo with separate `backend/` and `fron
 ### Backend (`backend/`)
 
 - **Infrastructure**: SST v4 (Ion) deploying to AWS — config in `sst.config.ts`
-- **Runtime**: Hono web framework on AWS Lambda via Function URL (`src/index.ts`)
+- **Runtime**: Hono web framework on AWS Lambda via API Gateway V2 (`src/index.ts`)
 - **Auth**: AWS Cognito UserPool with email-based usernames, SRP + password auth flows
 - **AWS SDKs**: Cognito Identity Provider, S3, S3 presigner
 - **Validation**: Zod v4
@@ -36,17 +36,24 @@ Generosity Incident Management — a monorepo with separate `backend/` and `fron
 ## Key Files
 
 ### Backend
-- `backend/src/index.ts` — Hono app エントリポイント（CORS, routes, error handler）
+- `backend/src/index.ts` — Hono app エントリポイント（routes, error handler）
 - `backend/src/auth/auth.routes.ts` — 認証エンドポイント（signin, refresh）
 - `backend/src/auth/auth.service.ts` — Cognito 呼び出しロジック
+- `backend/src/auth/auth.validators.ts` — Zod バリデーションスキーマ（signIn, refreshToken）
 - `backend/src/lib/api-response.ts` — 共通レスポンスヘルパー
-- `backend/sst.config.ts` — AWS インフラ定義（StaticSite, UserPool, ApiGateway）
+- `backend/src/lib/cognito.client.ts` — Cognito クライアントシングルトン
+- `backend/src/middleware/error-handler.middleware.ts` — グローバルエラーハンドラー
+- `backend/sst.config.ts` — AWS インフラ定義（StaticSite, UserPool, ApiGatewayV2）
 
 ### Frontend
 - `frontend/src/main.ts` — Vue app ブートストラップ
 - `frontend/src/App.vue` — ルートコンポーネント
-- `frontend/src/router/index.ts` — Vue Router 設定（現在 routes 未定義）
-- `frontend/src/view/SignIn.vue` — サインインページ（スタブ）
+- `frontend/src/router/index.ts` — Vue Router 設定（SignIn, Dashboard + 認証ガード）
+- `frontend/src/view/SignIn.vue` — サインインページ（auth store 連携済み）
+- `frontend/src/view/Dashboard.vue` — ダッシュボードページ
+- `frontend/src/components/CommonHeader.vue` — 共通ヘッダー（ナビ + サインアウト）
+- `frontend/src/lib/api-client.ts` — API クライアント（signIn, refreshTokens）
+- `frontend/src/stores/auth.ts` — 認証 Pinia ストア（localStorage 永続化）
 - `frontend/biome.json` — Biome v2 リンター/フォーマッター設定
 
 ## API Routes
@@ -56,6 +63,7 @@ Generosity Incident Management — a monorepo with separate `backend/` and `fron
 | POST | `/auth/signin` | Public | メール/パスワードでサインイン |
 | POST | `/auth/refresh` | Public | リフレッシュトークンでトークン更新 |
 | GET | `/` | Public | ヘルスチェック |
+| GET | `/api/me` | JWT | 認証済みユーザー情報取得（sub, email） |
 | * | `$default` | JWT | その他のルート（Cognito JWT 認証必須） |
 
 ## Commands
@@ -107,15 +115,18 @@ cd frontend && npx vitest run src/__tests__/App.spec.ts
 - **Double quotes** for strings
 - Imports auto-organized by Biome
 
-### Backend
+### Backend (Biome enforced)
 
-- Standard TypeScript style (spaces, single quotes in existing code)
+- Indent with **tabs**
+- **Double quotes** for strings
+- Imports auto-organized by Biome
 - ESM (`"type": "module"`)
 
 ## Gotchas
 
 - **SST Resource は dev 環境専用**: `Resource.*` は `sst dev` 経由でのみ注入される。直接 `node src/index.ts` では動作しない
-- **CORS が全開放**: `backend/src/index.ts` で `origin: '*'` — 本番では制限が必要
+- **CORS が全開放**: `backend/sst.config.ts` の ApiGatewayV2 設定で `allowOrigins: ['*']` — 本番では制限が必要
 - **バックエンドにテストなし**: 認証ロジックのテストは未実装。SST Resource のモックが課題
-- **フロントエンドの routes が空**: `frontend/src/router/index.ts` に routes が未定義。SignIn.vue は未接続
+- **Vite proxy パターン**: フロントエンドの API クライアントは `/api/auth/signin` のようなパスを使用し、`vite.config.ts` のプロキシ設定が `/api` を `VITE_API_URL` に転送してパスプレフィックスを除去する
+- **認証トークンは localStorage**: auth store が accessToken/refreshToken/email を localStorage に保存。ルーターの `beforeEach` ガードで認証チェックを実施
 - **Cognito エラーマッピング**: `auth.routes.ts` で Cognito 例外名をユーザー向けメッセージに変換している
