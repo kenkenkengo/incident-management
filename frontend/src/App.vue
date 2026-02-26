@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type router from "./router";
+import CommonHeader from "@/components/CommonHeader.vue";
 </script>
 
 <template>
+  <CommonHeader />
   <router-view />
 </template>
 

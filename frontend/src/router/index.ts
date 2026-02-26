@@ -24,6 +24,10 @@ router.beforeEach((to, from, next) => {
 	authStore.loadFromStorage();
 	const isAuthenticated = authStore.isAuthenticated;
 
+	if (isAuthenticated && to.name === "signin") {
+		next({ name: "dashboard" });
+	}
+
 	if (to.name !== "signin" && !isAuthenticated) {
 		next({ name: "signin" });
 	} else {
