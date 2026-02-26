@@ -1,24 +1,26 @@
 {
-  "name": "backend",
-  "type": "module",
-  "scripts": {
-    "build": "esbuild --bundle --outfile=./dist/index.js --platform=node --target=node20 ./src/index.ts",
-    "deploy": "run-s build zip update",
-    "update": "aws lambda update-function-code --zip-file fileb://lambda.zip --function-name hello",
-    "zip": "zip -j lambda.zip dist/index.js",
-    "dev": "sst dev"
-  },
-  "devDependencies": {
-    "@types/aws-lambda": "8.10.160",
-    "esbuild": "^0.21.4",
-    "npm-run-all2": "^6.2.0"
-  },
-  "dependencies": {
-    "@aws-sdk/client-cognito-identity-provider": "^3.997.0",
-    "@aws-sdk/client-s3": "^3.997.0",
-    "@aws-sdk/s3-request-presigner": "^3.997.0",
-    "hono": "^4.12.2",
-    "sst": "4.0.2",
-    "zod": "^4.3.6"
-  }
+	"name": "backend",
+	"type": "module",
+	"scripts": {
+		"build": "esbuild --bundle --outfile=./dist/index.js --platform=node --target=node20 ./src/index.ts",
+		"deploy": "run-s build zip update",
+		"update": "aws lambda update-function-code --zip-file fileb://lambda.zip --function-name hello",
+		"zip": "zip -j lambda.zip dist/index.js",
+		"dev": "sst dev",
+		"lint": "biome check --write"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.4",
+		"@types/aws-lambda": "8.10.160",
+		"esbuild": "^0.21.4",
+		"npm-run-all2": "^6.2.0"
+	},
+	"dependencies": {
+		"@aws-sdk/client-cognito-identity-provider": "^3.997.0",
+		"@aws-sdk/client-s3": "^3.997.0",
+		"@aws-sdk/s3-request-presigner": "^3.997.0",
+		"hono": "^4.12.2",
+		"sst": "4.0.2",
+		"zod": "^4.3.6"
+	}
 }

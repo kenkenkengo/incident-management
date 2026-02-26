@@ -5,7 +5,7 @@ import vueDevTools from "vite-plugin-vue-devtools";
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-	const env = loadEnv(mode, process.cwd())
+	const env = loadEnv(mode, process.cwd());
 	return {
 		plugins: [vue(), vueDevTools()],
 		resolve: {
@@ -23,5 +23,5 @@ export default defineConfig(({ mode }) => {
 				},
 			},
 		},
-	}
+	};
 });

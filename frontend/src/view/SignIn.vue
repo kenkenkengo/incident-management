@@ -1,13 +1,25 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { signIn } from "../lib/api-client";
+import { useAuthStore } from "@/stores/auth";
 
 const email = ref("");
 const password = ref("");
 
+const authStore = useAuthStore();
+
 const handleSignIn = async () => {
-  const response = await signIn(email.value, password.value);
-  console.log(response);
+	const response = await authStore.signInAction(email.value, password.value);
+	console.log(response);
+
+	if (response.success) {
+		// Sign-in successful, you can redirect the user or show a success message
+		console.log("Sign-in successful");
+
+		// todo:routerで別のページに遷移
+	} else {
+		// Sign-in failed, you can show an error message
+		console.error("Sign-in failed:", response.error);
+	}
 };
 </script>
 

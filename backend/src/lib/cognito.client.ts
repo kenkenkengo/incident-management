@@ -5,8 +5,8 @@ import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-
 let clientInstance: CognitoIdentityProviderClient | undefined;
 
 export const getCognitoClient = (): CognitoIdentityProviderClient => {
-  if (!clientInstance) {
-    clientInstance = new CognitoIdentityProviderClient({})
-  }
-  return clientInstance
-}
+	if (!clientInstance) {
+		clientInstance = new CognitoIdentityProviderClient({});
+	}
+	return clientInstance;
+};
