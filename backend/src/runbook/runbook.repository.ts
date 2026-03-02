@@ -22,6 +22,19 @@ export const listAll = async (tag?: string): Promise<Runbook[]> => {
   return (result.Items ?? []) as Runbook[];
 }
 
+export const getAllTags = async (): Promise<string[]> => {
+  const result = await client.send(new ScanCommand({
+    TableName: TABLE_NAME,
+    ProjectionExpression: "tags",
+  }));
+  const tagsSet = new Set<string>();
+  result.Items?.forEach(item => {
+    const runbook = item as Runbook;
+    runbook.tags.forEach(tag => tagsSet.add(tag));
+  });
+  return [...tagsSet].sort();
+}
+
 export const findById = async (id: string): Promise<Runbook | null> => {
   const result = await client.send(new GetCommand({
     TableName: TABLE_NAME,

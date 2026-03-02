@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { signIn } from "@/lib/api-client";
+import { refreshTokens, signIn } from "@/lib/api-client";
 
 export const useAuthStore = defineStore("auth", () => {
 	const accessToken = ref<string | null>(null);
@@ -51,6 +51,24 @@ export const useAuthStore = defineStore("auth", () => {
 		}
 	}
 
+	async function refreshAccessToken(): Promise<string | null> {
+		if (!refreshToken.value) return null;
+		try {
+			const response = await refreshTokens(refreshToken.value);
+
+			if (!response.success || !response.data) {
+				signOutAction();
+				return null;
+			}
+			accessToken.value = response.data.accessToken;
+			saveToStorage();
+			return accessToken.value;
+		} catch (e) {
+			signOutAction();
+			return null;
+		}
+	}
+
 	return {
 		accessToken,
 		refreshToken,
@@ -60,5 +78,6 @@ export const useAuthStore = defineStore("auth", () => {
 		signOutAction,
 		loadFromStorage,
 		saveToStorage,
+		refreshAccessToken,
 	};
 });

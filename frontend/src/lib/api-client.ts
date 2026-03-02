@@ -42,45 +42,76 @@ const runbookHeaders = (accessToken: string) => ({
 	Authorization: `Bearer ${accessToken}`,
 });
 
-export const listRunbooks = async (accessToken: string, tag?: string) => {
-	const url = tag
-		? `/api/runbooks?tag=${encodeURIComponent(tag)}`
-		: `/api/runbooks`;
-	const rest = await fetch(url, {
-		headers: runbookHeaders(accessToken),
-	});
-	return rest.json() as Promise<{
-		success: boolean;
-		data?: Runbook[];
-		error?: string;
-	}>;
+const checkUnauthorized = async (response: Response): Promise<Response> => {
+	if (response.status === 401) {
+		throw { name: "UnauthorizedError", message: "Unauthorized", status: 401 };
+	}
+	return response;
+}
+
+export const listTags = async (accessToken: string) => {
+	try {
+		const res = await checkUnauthorized(
+			await fetch(`/api/runbooks/tags`, { headers: runbookHeaders(accessToken) })
+		);
+		return res.json() as Promise<{ success: boolean; data?: string[]; error?: string }>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
 };
 
+export const listRunbooks = async (accessToken: string, tags?: string[]) => {
+	const url = tags ? `/api/runbooks?tag=${encodeURIComponent(tags.join(","))}` : "/api/runbooks";
+	try {
+		const res = await checkUnauthorized(
+			await fetch(url, { headers: runbookHeaders(accessToken) })
+		);
+		return res.json() as Promise<{ success: boolean; data?: Runbook[]; error?: string }>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
+};
+
+
 export const getRunbook = async (accessToken: string, id: string) => {
-	const res = await fetch(`/api/runbooks/${id}`, {
-		headers: runbookHeaders(accessToken),
-	});
-	return res.json() as Promise<{
-		success: boolean;
-		data?: Runbook;
-		error?: string;
-	}>;
+	try {
+		const res = await checkUnauthorized(
+			await fetch(`/api/runbooks/${id}`, { headers: runbookHeaders(accessToken) })
+		);
+		return res.json() as Promise<{
+			success: boolean;
+			data?: Runbook;
+			error?: string;
+		}>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
 };
 
 export const createRunbook = async (
 	accessToken: string,
 	input: RunbookInput,
 ) => {
-	const res = await fetch(`/api/runbooks`, {
-		method: "POST",
-		headers: runbookHeaders(accessToken),
-		body: JSON.stringify(input),
-	});
-	return res.json() as Promise<{
-		success: boolean;
-		data?: Runbook;
-		error?: string;
-	}>;
+	try {
+		const res = await checkUnauthorized(
+			await fetch(`/api/runbooks`, {
+				method: "POST",
+				headers: runbookHeaders(accessToken),
+				body: JSON.stringify(input),
+			})
+		);
+		return res.json() as Promise<{
+			success: boolean;
+			data?: Runbook;
+			error?: string;
+		}>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
 };
 
 export const updateRunbook = async (
@@ -88,21 +119,36 @@ export const updateRunbook = async (
 	id: string,
 	input: RunbookInput,
 ) => {
-	const res = await fetch(`/api/runbooks/${id}`, {
-		method: "PUT",
-		headers: runbookHeaders(accessToken),
-		body: JSON.stringify(input),
-	});
-	return res.json() as Promise<{
-		success: boolean;
-		data?: Runbook;
-		error?: string;
-	}>;
+	try {
+		const res = await checkUnauthorized(
+			await fetch(`/api/runbooks/${id}`, {
+				method: "PUT",
+				headers: runbookHeaders(accessToken),
+				body: JSON.stringify(input),
+			})
+		);
+		return res.json() as Promise<{
+			success: boolean;
+			data?: Runbook;
+			error?: string;
+		}>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
 };
 
 export const deleteRunbook = async (accessToken: string, id: string) => {
-	const res = await fetch(`/api/runbooks/${id}`, {
-		method: "DELETE",
-		headers: runbookHeaders(accessToken),
-	});
+	try {
+		const res = await checkUnauthorized(
+			await fetch(`/api/runbooks/${id}`, {
+				method: "DELETE",
+				headers: runbookHeaders(accessToken),
+			})
+		);
+		return res.json() as Promise<{ success: boolean; error?: string }>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
 };

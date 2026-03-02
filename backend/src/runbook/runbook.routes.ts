@@ -1,9 +1,7 @@
 import { Hono } from "hono";
 import { errorResponse, successResponse } from "../lib/api-response";
-import { create, findById, listAll, update, remove } from "./runbook.repository";
+import { create, findById, listAll, update, remove, getAllTags } from "./runbook.repository";
 import { createRunbookSchema, updateRunbookSchema } from "./runbook.validators";
-import { ca } from "zod/v4/locales";
-import { run } from "node:test";
 
 const getCallerSub = (c: { env: unknown }): string => {
   const event = c.env as {
@@ -41,6 +39,16 @@ runbookRoutes.post("/", async (c) => {
   } catch (error) {
     console.error("Error creating runbook", error);
     return errorResponse(c, "Failed to create runbook", 500);
+  }
+})
+
+runbookRoutes.get("/tags", async (c) => {
+  try {
+    const tags = await getAllTags();
+    return successResponse(c, tags);
+  } catch (error) {
+    console.error("Error retrieving tags", error);
+    return errorResponse(c, "Failed to retrieve tags", 500);
   }
 })
 

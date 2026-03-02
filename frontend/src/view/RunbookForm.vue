@@ -2,10 +2,14 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useRunbookStore } from "@/stores/runbook";
+import { listTags } from "@/lib/api-client";
+import { useAuthStore } from "@/stores/auth";
 
 const route = useRoute();
 const router = useRouter();
 const store = useRunbookStore();
+const authStore = useAuthStore();
+const tagSuggestions = ref<string[]>([]);
 
 const id = route.params.id as string | undefined;
 const isEdit = computed(() => !!id);
@@ -15,54 +19,64 @@ const content = ref("");
 const tagsInput = ref("");
 
 onMounted(async () => {
-	if (isEdit.value && id) {
-		try {
-			await store.fetchOne(id);
-			if (store.currentRunbook) {
-				title.value = store.currentRunbook.title;
-				content.value = store.currentRunbook.content;
-				tagsInput.value = store.currentRunbook.tags.join(", ");
-			}
-		} catch (error) {
-			alert(
-				error instanceof Error
-					? error.message
-					: "Runbookの読み込みに失敗しました",
-			);
-			router.push({ name: "runbook-list" });
-		}
-	}
+  if (authStore.accessToken) {
+    try {
+      const tags = await listTags(authStore.accessToken);
+      if (tags.success && tags.data) {
+        tagSuggestions.value = tags.data;
+      }
+    } catch (error) {
+      console.error("Error fetching tags", error);
+    }
+  }
+  if (isEdit.value && id) {
+    try {
+      await store.fetchOne(id);
+      if (store.currentRunbook) {
+        title.value = store.currentRunbook.title;
+        content.value = store.currentRunbook.content;
+        tagsInput.value = store.currentRunbook.tags.join(", ");
+      }
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Runbookの読み込みに失敗しました",
+      );
+      router.push({ name: "runbook-list" });
+    }
+  }
 });
 
 const parseTags = (input: string): string[] => {
-	return input
-		.split(",")
-		.map((tag) => tag.trim())
-		.filter((tag) => tag.length > 0);
+  return input
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0);
 };
 
 const handleSubmit = async () => {
-	const runbookData = {
-		title: title.value,
-		content: content.value,
-		tags: parseTags(tagsInput.value),
-	};
+  const runbookData = {
+    title: title.value,
+    content: content.value,
+    tags: parseTags(tagsInput.value),
+  };
 
-	try {
-		if (isEdit.value && id) {
-			const updated = await store.edit(id, runbookData);
-			if (updated) {
-				router.push({ name: "runbook-detail", params: { id } });
-			}
-		} else {
-			const created = await store.create(runbookData);
-			if (created) {
-				router.push({ name: "runbook-detail", params: { id: created.id } });
-			}
-		}
-	} catch (error) {
-		alert(error instanceof Error ? error.message : "保存に失敗しました");
-	}
+  try {
+    if (isEdit.value && id) {
+      const updated = await store.edit(id, runbookData);
+      if (updated) {
+        router.push({ name: "runbook-detail", params: { id } });
+      }
+    } else {
+      const created = await store.create(runbookData);
+      if (created) {
+        router.push({ name: "runbook-detail", params: { id: created.id } });
+      }
+    }
+  } catch (error) {
+    alert(error instanceof Error ? error.message : "保存に失敗しました");
+  }
 };
 </script>
 
@@ -79,7 +93,10 @@ const handleSubmit = async () => {
       </div>
       <div>
         <label for="tags">タグ（カンマ区切り）:</label>
-        <input id="tags" v-model="tagsInput" type="text" placeholder="例：DB, Network, Deploy" />
+        <input id="tags" v-model="tagsInput" type="text" placeholder="例：DB, Network, Deploy" list="tag-suggestions" />
+        <datalist id="tag-suggestions">
+          <option v-for="tag in tagSuggestions" :key="tag" :value="tag" />
+        </datalist>
       </div>
       <div>
         <label for="content">内容 (Markdown形式):</label>

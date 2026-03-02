@@ -12,31 +12,31 @@ const store = useRunbookStore();
 const id = route.params.id as string;
 
 onMounted(() => {
-	store.fetchOne(id);
+  store.fetchOne(id);
 });
 
 const renderedContent = computed(() => {
-	if (!store.currentRunbook) return "";
-	return DOMPurify.sanitize(
-		marked.parse(store.currentRunbook.content) as string,
-	);
+  if (!store.currentRunbook) return "";
+  return DOMPurify.sanitize(
+    marked.parse(store.currentRunbook.content) as string,
+  );
 });
 
 const goToEdit = () => {
-	router.push({ name: "runbook-edit", params: { id } });
+  router.push({ name: "runbook-edit", params: { id } });
 };
 
 const handleDelete = async () => {
-	if (confirm("このRunbookを削除してもよろしいですか？")) {
-		try {
-			const success = await store.remove(id);
-			if (success) {
-				router.push({ name: "runbook-list" });
-			}
-		} catch (error) {
-			alert(error instanceof Error ? error.message : "削除に失敗しました");
-		}
-	}
+  if (confirm("このRunbookを削除してもよろしいですか？")) {
+    try {
+      const success = await store.remove(id);
+      if (success) {
+        router.push({ name: "runbook-list" });
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "削除に失敗しました");
+    }
+  }
 };
 </script>
 
@@ -57,7 +57,7 @@ const handleDelete = async () => {
           <button @click="handleDelete">削除</button>
         </div>
         <div v-if="store.currentRunbook.tags.length > 0">
-          <span v-for="tag in store.currentRunbook.tags" :key="tag">{{ tag }}</span>
+          <span v-for="tag in store.currentRunbook.tags" :key="tag">{{ tag }}, </span>
         </div>
 
         <article v-html="renderedContent"></article>

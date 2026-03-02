@@ -4,7 +4,6 @@ import { cors } from "hono/cors";
 import { Resource } from "sst";
 import { authRoutes } from "./auth/auth.routes";
 import { errorHandler } from "./middleware/error-handler.middleware";
-import { run } from "node:test";
 import { runbookRoutes } from "./runbook/runbook.routes";
 
 const app = new Hono();
@@ -32,7 +31,7 @@ app.get("/", (c) => {
 });
 
 app.route("/auth", authRoutes);
-app.route("/api/runbooks", runbookRoutes);
+app.route("/runbooks", runbookRoutes);
 
 app.get("/api/me", (c) => {
 	const event = c.env as {
