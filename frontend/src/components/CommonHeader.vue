@@ -64,10 +64,11 @@ const handleSignOut = () => {
   left: 0;
   right: 0;
   height: var(--header-height);
-  background: rgba(9, 12, 19, 0.94);
+  background: rgba(249, 248, 245, 0.92);
   border-bottom: 1px solid var(--border-subtle);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-sm);
   z-index: 100;
 }
 

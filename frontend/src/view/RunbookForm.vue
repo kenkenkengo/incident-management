@@ -5,6 +5,8 @@ import { useRunbookStore } from "@/stores/runbook";
 import { listTags } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth";
 import TagInput from "@/components/TagInput.vue";
+import { MdEditor } from "md-editor-v3";
+import "md-editor-v3/lib/style.css";
 
 const route = useRoute();
 const router = useRouter();
@@ -121,22 +123,13 @@ const handleSubmit = async () => {
 
           <!-- Content -->
           <div class="form-group content-group">
-            <div class="content-label-row">
-              <label for="content">内容 (Markdown)</label>
-              <span class="mono text-xs text-muted">Markdown形式で記述</span>
-            </div>
-            <textarea
+            <label for="content">内容 (Markdown)</label>
+            <MdEditor
               id="content"
               v-model="content"
-              placeholder="## 手順
-1. サーバーにSSHで接続
-2. ログを確認
-   \`\`\`bash
-   tail -f /var/log/app.log
-   \`\`\`
-3. 必要に応じてサービスを再起動"
-              required
-              class="content-textarea"
+              theme="light"
+              language="jp"
+              class="md-editor-wrap"
             />
           </div>
         </div>
@@ -280,20 +273,11 @@ const handleSubmit = async () => {
   flex: 1;
 }
 
-.content-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-xs);
-}
-
-.content-textarea {
-  height: calc(100vh - 380px);
+.md-editor-wrap {
+  height: calc(100vh - 340px);
   min-height: 400px;
-  resize: vertical;
-  line-height: 1.7;
-  font-size: 0.875rem;
-  font-family: var(--font-mono);
+  border-radius: 4px;
+  overflow: hidden;
 }
 
 /* Side card */
@@ -307,9 +291,10 @@ const handleSubmit = async () => {
 
 .side-card {
   background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .side-card-header {
@@ -369,8 +354,8 @@ const handleSubmit = async () => {
 }
 
 .submit-btn:hover:not(:disabled) {
-  background: #fbb740;
-  box-shadow: 0 0 20px var(--accent-glow-strong);
+  background: var(--accent-hover);
+  box-shadow: 0 4px 16px var(--accent-glow-strong);
 }
 
 .submit-btn:disabled {

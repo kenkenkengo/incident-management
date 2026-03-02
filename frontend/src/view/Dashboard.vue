@@ -168,8 +168,8 @@ const goToNewRunbook = () => router.push({ name: "runbook-new" });
 }
 
 .btn-primary:hover {
-  background: #fbb740;
-  box-shadow: 0 0 16px var(--accent-glow-strong);
+  background: var(--accent-hover);
+  box-shadow: 0 2px 8px var(--accent-glow-strong);
 }
 
 .btn-ghost {
@@ -226,13 +226,15 @@ const goToNewRunbook = () => router.push({ name: "runbook-new" });
 .stat-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: 6px;
+  border-radius: 8px;
   padding: var(--space-lg);
-  transition: border-color var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .stat-card:hover {
   border-color: var(--border-default);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-card.accent {
@@ -283,8 +285,9 @@ const goToNewRunbook = () => router.push({ name: "runbook-new" });
 .section {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .section-header {

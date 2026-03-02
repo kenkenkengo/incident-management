@@ -1,43 +1,50 @@
 /* ============================================
    GENEROSITY — INCIDENT MANAGEMENT
-   Design System: Mission Control Dark
+   Design System: Warm Paper Operations
    ============================================ */
 
 :root {
-	/* Background layers — slightly lighter for surface separation */
-	--bg-base: #090c13;
-	--bg-surface: #111520;
-	--bg-elevated: #1b2235;
-	--bg-hover: #212a40;
+	/* Background layers — warm paper tones */
+	--bg-base: #F9F8F5;
+	--bg-surface: #FFFFFF;
+	--bg-elevated: #F3F1EC;
+	--bg-hover: #EDEBE5;
 
-	/* Borders — raised for visibility */
-	--border-subtle: #2d3d56;
-	--border-default: #3d5070;
-	--border-strong: #527098;
+	/* Borders — warm gray */
+	--border-subtle: #E8E4DF;
+	--border-default: #D4CEC8;
+	--border-strong: #B5AFA8;
 
-	/* Text — contrast-checked against WCAG AA 4.5:1 */
-	--text-primary: #e4eaf7;     /* ~15:1 on bg-base */
-	--text-secondary: #a3b3cc;  /* ~7:1 on bg-base */
-	--text-muted: #748096;       /* ~4.6:1 on bg-base */
-	--text-inverse: #090c13;
+	/* Text — warm near-black */
+	--text-primary: #1A1714;
+	--text-secondary: #635E59;
+	--text-muted: #9B9490;
+	--text-inverse: #FFFFFF;
 
-	/* Accent — Amber */
-	--accent: #f5a623;
-	--accent-dim: #b87a18;
-	--accent-glow: rgba(245, 166, 35, 0.15);
-	--accent-glow-strong: rgba(245, 166, 35, 0.3);
+	/* Accent — Terracotta/Rust */
+	--accent: #B5541E;
+	--accent-hover: #C8652D;
+	--accent-dim: #8B4118;
+	--accent-glow: rgba(181, 84, 30, 0.10);
+	--accent-glow-strong: rgba(181, 84, 30, 0.22);
 
 	/* Status colors */
-	--status-ok: #3ddc84;
-	--status-ok-dim: rgba(61, 220, 132, 0.15);
-	--status-warn: #f5a623;
-	--status-danger: #ff5c75;
-	--status-danger-dim: rgba(255, 92, 117, 0.15);
-	--status-info: #5ab0ff;
+	--status-ok: #1B7F4E;
+	--status-ok-dim: rgba(27, 127, 78, 0.10);
+	--status-warn: #B5541E;
+	--status-danger: #C03737;
+	--status-danger-dim: rgba(192, 55, 55, 0.10);
+	--status-info: #2B6CB0;
 
 	/* Typography */
-	--font-mono: "IBM Plex Mono", "Courier New", monospace;
-	--font-sans: "IBM Plex Sans", system-ui, sans-serif;
+	--font-mono: "JetBrains Mono", "Courier New", monospace;
+	--font-sans: "DM Sans", system-ui, sans-serif;
+	--font-display: "Spectral", Georgia, serif;
+
+	/* Shadows */
+	--shadow-sm: 0 1px 3px rgba(26, 23, 20, 0.06), 0 1px 2px rgba(26, 23, 20, 0.04);
+	--shadow-md: 0 4px 12px rgba(26, 23, 20, 0.08), 0 2px 4px rgba(26, 23, 20, 0.05);
+	--shadow-focus: 0 0 0 3px rgba(181, 84, 30, 0.18);
 
 	/* Spacing */
 	--space-xs: 4px;
@@ -77,7 +84,7 @@ body {
 	line-height: 1.6;
 	min-height: 100vh;
 	background-image:
-		radial-gradient(ellipse 80% 50% at 50% -20%, rgba(245, 166, 35, 0.04) 0%, transparent 60%);
+		radial-gradient(ellipse 80% 50% at 50% -20%, rgba(181, 84, 30, 0.05) 0%, transparent 60%);
 }
 
 #app {
@@ -93,7 +100,6 @@ body {
 	border-radius: 3px;
 }
 
-/* Remove default outline when using mouse */
 :focus:not(:focus-visible) {
 	outline: none;
 }
@@ -114,7 +120,7 @@ h1, h2, h3, h4, h5, h6 {
 input, textarea, select {
 	font-family: var(--font-mono);
 	font-size: 0.9375rem;
-	background: var(--bg-elevated);
+	background: var(--bg-surface);
 	border: 1px solid var(--border-default);
 	color: var(--text-primary);
 	border-radius: 4px;
@@ -130,7 +136,7 @@ input::placeholder, textarea::placeholder {
 
 input:focus, textarea:focus, select:focus {
 	border-color: var(--accent);
-	box-shadow: 0 0 0 3px var(--accent-glow);
+	box-shadow: var(--shadow-focus);
 }
 
 label {
@@ -167,8 +173,8 @@ button {
 }
 
 .btn-primary:hover {
-	background: #fbb740;
-	box-shadow: 0 0 16px var(--accent-glow-strong);
+	background: var(--accent-hover);
+	box-shadow: 0 2px 8px var(--accent-glow-strong);
 }
 
 /* Ghost button */
@@ -193,7 +199,7 @@ button {
 
 .btn-danger:hover {
 	background: var(--status-danger-dim);
-	box-shadow: 0 0 12px rgba(255, 92, 117, 0.2);
+	box-shadow: 0 2px 8px rgba(192, 55, 55, 0.15);
 }
 
 /* ==================
@@ -202,12 +208,14 @@ button {
 .card {
 	background: var(--bg-surface);
 	border: 1px solid var(--border-subtle);
-	border-radius: 6px;
+	border-radius: 8px;
 	padding: var(--space-lg);
+	box-shadow: var(--shadow-sm);
 }
 
 .card:hover {
 	border-color: var(--border-default);
+	box-shadow: var(--shadow-md);
 }
 
 /* ==================
@@ -217,7 +225,7 @@ button {
 	display: inline-flex;
 	align-items: center;
 	font-family: var(--font-mono);
-	font-size: 0.75rem;
+	font-size: 0.7rem;
 	font-weight: 500;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
@@ -225,7 +233,7 @@ button {
 	border: 1px solid var(--border-default);
 	color: var(--text-secondary);
 	padding: 3px var(--space-sm);
-	border-radius: 2px;
+	border-radius: 3px;
 }
 
 /* ==================
@@ -236,7 +244,7 @@ button {
 	height: 7px;
 	border-radius: 50%;
 	background: var(--status-ok);
-	box-shadow: 0 0 6px var(--status-ok);
+	box-shadow: 0 0 0 2px rgba(27, 127, 78, 0.2);
 	animation: pulse 2s infinite;
 	display: inline-block;
 	flex-shrink: 0;
@@ -244,7 +252,7 @@ button {
 
 @keyframes pulse {
 	0%, 100% { opacity: 1; }
-	50% { opacity: 0.4; }
+	50% { opacity: 0.5; }
 }
 
 /* ==================
@@ -307,10 +315,11 @@ hr {
 }
 
 .page-title {
-	font-family: var(--font-mono);
-	font-size: 1.5rem;
-	font-weight: 600;
+	font-family: var(--font-display);
+	font-size: 1.75rem;
+	font-weight: 500;
 	color: var(--text-primary);
+	letter-spacing: -0.01em;
 }
 
 /* ==================
@@ -365,11 +374,11 @@ hr {
 .markdown-body h2,
 .markdown-body h3,
 .markdown-body h4 {
-	font-family: var(--font-mono);
+	font-family: var(--font-display);
 	color: var(--text-primary);
 	margin: var(--space-lg) 0 var(--space-sm);
 	padding-bottom: var(--space-xs);
-	border-bottom: 1px solid var(--border-default);
+	border-bottom: 1px solid var(--border-subtle);
 }
 
 .markdown-body p {

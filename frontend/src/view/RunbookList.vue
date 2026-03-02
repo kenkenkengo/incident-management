@@ -176,8 +176,8 @@ const goToNew = () => {
 }
 
 .btn-primary:hover {
-  background: #fbb740;
-  box-shadow: 0 0 16px var(--accent-glow-strong);
+  background: var(--accent-hover);
+  box-shadow: 0 2px 8px var(--accent-glow-strong);
 }
 
 .btn-ghost {
@@ -251,9 +251,10 @@ const goToNew = () => {
 .runbook-table {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
   margin-bottom: var(--space-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .table-head {

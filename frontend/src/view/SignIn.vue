@@ -133,7 +133,7 @@ const handleSignIn = async () => {
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 30%, transparent 100%);
   -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 30%, transparent 100%);
-  opacity: 0.4;
+  opacity: 0.6;
 }
 
 /* Corner marks */
@@ -236,9 +236,10 @@ const handleSignIn = async () => {
 /* Card */
 .signin-card {
   background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
   overflow: hidden;
+  box-shadow: var(--shadow-md);
 }
 
 .card-header {
@@ -320,8 +321,8 @@ const handleSignIn = async () => {
 }
 
 .signin-btn:hover:not(:disabled) {
-  background: #fbb740;
-  box-shadow: 0 0 24px var(--accent-glow-strong);
+  background: var(--accent-hover);
+  box-shadow: 0 4px 16px var(--accent-glow-strong);
 }
 
 .signin-btn:disabled {

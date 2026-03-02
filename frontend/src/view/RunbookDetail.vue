@@ -1,25 +1,19 @@
 <script setup lang="ts">
-import DOMPurify from "dompurify";
-import { marked } from "marked";
-import { computed, onMounted } from "vue";
+import { onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useRunbookStore } from "@/stores/runbook";
+import { MdPreview, MdCatalog } from "md-editor-v3";
+import "md-editor-v3/lib/preview.css";
 
 const route = useRoute();
 const router = useRouter();
 const store = useRunbookStore();
 
 const id = route.params.id as string;
+const previewId = "runbook-preview";
 
 onMounted(() => {
 	store.fetchOne(id);
-});
-
-const renderedContent = computed(() => {
-	if (!store.currentRunbook) return "";
-	return DOMPurify.sanitize(
-		marked.parse(store.currentRunbook.content) as string,
-	);
 });
 
 const goToEdit = () => {
@@ -99,11 +93,19 @@ const handleDelete = async () => {
         <span class="divider-label mono text-xs">CONTENT</span>
       </div>
 
-      <!-- Article content -->
-      <article
-        class="markdown-body article-body"
-        v-html="renderedContent"
-      />
+      <!-- Article content + Catalog -->
+      <div class="content-layout">
+        <MdPreview
+          :editor-id="previewId"
+          :model-value="store.currentRunbook.content"
+          theme="light"
+          class="article-body"
+        />
+        <aside class="catalog-aside">
+          <div class="catalog-label mono text-xs">CONTENTS</div>
+          <MdCatalog :editor-id="previewId" theme="light" />
+        </aside>
+      </div>
     </template>
   </div>
 </template>
@@ -217,13 +219,13 @@ const handleDelete = async () => {
 }
 
 .article-title {
-  font-family: var(--font-mono);
-  font-size: 2rem;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+  font-weight: 500;
   color: var(--text-primary);
   line-height: 1.2;
   margin-bottom: var(--space-lg);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
 }
 
 .article-meta {
@@ -266,9 +268,63 @@ const handleDelete = async () => {
   font-size: 0.75rem;
 }
 
+/* Content layout */
+.content-layout {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: var(--space-xl);
+  align-items: start;
+}
+
 /* Article body */
 .article-body {
-  max-width: 760px;
+  min-width: 0;
   animation: fade-in 0.35s ease 0.1s both;
+}
+
+/* Catalog aside */
+.catalog-aside {
+  position: sticky;
+  top: calc(var(--header-height) + var(--space-lg));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  animation: fade-in 0.35s ease 0.15s both;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: var(--space-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.catalog-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* MdCatalog のスタイル上書き */
+.catalog-aside :deep(.md-editor-catalog) {
+  background: transparent;
+  padding: 0;
+}
+
+.catalog-aside :deep(.md-editor-catalog-link) {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  padding: 4px 0;
+  line-height: 1.4;
+  transition: color var(--transition-fast);
+}
+
+.catalog-aside :deep(.md-editor-catalog-link:hover),
+.catalog-aside :deep(.md-editor-catalog-active > .md-editor-catalog-link) {
+  color: var(--accent);
 }
 </style>
