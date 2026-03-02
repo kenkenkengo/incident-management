@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { useRunbookStore } from '@/stores/runbook';
-import { useRouter } from 'vue-router';
-import { onMounted, ref } from 'vue';
+import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
+import { useRunbookStore } from "@/stores/runbook";
 
 const store = useRunbookStore();
 const router = useRouter();
-const tagFilter = ref('');
+const tagFilter = ref("");
 
 onMounted(() => {
-  store.fetchAll();
+	store.fetchAll();
 });
 
 const applyFilter = () => {
-  store.fetchAll(tagFilter.value.trim() || undefined);
+	store.fetchAll(tagFilter.value.trim() || undefined);
 };
 
 const goToDetail = (id: string) => {
-  router.push({ name: 'runbook-detail', params: { id } });
+	router.push({ name: "runbook-detail", params: { id } });
 };
 
 const goToNew = () => {
-  router.push({ name: 'runbook-new' });
+	router.push({ name: "runbook-new" });
 };
 </script>
 

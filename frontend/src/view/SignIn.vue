@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { useAuthStore } from "@/stores/auth";
 import { useRouter } from "vue-router";
+import { useAuthStore } from "@/stores/auth";
+
 const router = useRouter();
 
 const email = ref("");
@@ -12,14 +13,14 @@ const errorMessage = ref("");
 const authStore = useAuthStore();
 
 const handleSignIn = async () => {
-  try {
-    errorMessage.value = "";
-    await authStore.signInAction(email.value, password.value);
-    router.push({ name: "dashboard" });
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : "サインインに失敗しました";
-  }
+	try {
+		errorMessage.value = "";
+		await authStore.signInAction(email.value, password.value);
+		router.push({ name: "dashboard" });
+	} catch (error) {
+		errorMessage.value =
+			error instanceof Error ? error.message : "サインインに失敗しました";
+	}
 };
 </script>
 

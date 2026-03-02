@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router';
-import { useRunbookStore } from '@/stores/runbook';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useRunbookStore } from "@/stores/runbook";
 
 const route = useRoute();
 const router = useRouter();
@@ -10,55 +10,59 @@ const store = useRunbookStore();
 const id = route.params.id as string | undefined;
 const isEdit = computed(() => !!id);
 
-const title = ref('');
-const content = ref('');
-const tagsInput = ref('');
+const title = ref("");
+const content = ref("");
+const tagsInput = ref("");
 
 onMounted(async () => {
-  if (isEdit.value && id) {
-    try {
-      await store.fetchOne(id);
-      if (store.currentRunbook) {
-        title.value = store.currentRunbook.title;
-        content.value = store.currentRunbook.content;
-        tagsInput.value = store.currentRunbook.tags.join(', ');
-      }
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Runbookの読み込みに失敗しました');
-      router.push({ name: 'runbook-list' });
-    }
-  }
+	if (isEdit.value && id) {
+		try {
+			await store.fetchOne(id);
+			if (store.currentRunbook) {
+				title.value = store.currentRunbook.title;
+				content.value = store.currentRunbook.content;
+				tagsInput.value = store.currentRunbook.tags.join(", ");
+			}
+		} catch (error) {
+			alert(
+				error instanceof Error
+					? error.message
+					: "Runbookの読み込みに失敗しました",
+			);
+			router.push({ name: "runbook-list" });
+		}
+	}
 });
 
 const parseTags = (input: string): string[] => {
-  return input
-    .split(',')
-    .map(tag => tag.trim())
-    .filter(tag => tag.length > 0);
+	return input
+		.split(",")
+		.map((tag) => tag.trim())
+		.filter((tag) => tag.length > 0);
 };
 
 const handleSubmit = async () => {
-  const runbookData = {
-    title: title.value,
-    content: content.value,
-    tags: parseTags(tagsInput.value),
-  };
+	const runbookData = {
+		title: title.value,
+		content: content.value,
+		tags: parseTags(tagsInput.value),
+	};
 
-  try {
-    if (isEdit.value && id) {
-      const updated = await store.edit(id, runbookData);
-      if (updated) {
-        router.push({ name: 'runbook-detail', params: { id } });
-      }
-    } else {
-      const created = await store.create(runbookData);
-      if (created) {
-        router.push({ name: 'runbook-detail', params: { id: created.id } });
-      }
-    }
-  } catch (error) {
-    alert(error instanceof Error ? error.message : '保存に失敗しました');
-  }
+	try {
+		if (isEdit.value && id) {
+			const updated = await store.edit(id, runbookData);
+			if (updated) {
+				router.push({ name: "runbook-detail", params: { id } });
+			}
+		} else {
+			const created = await store.create(runbookData);
+			if (created) {
+				router.push({ name: "runbook-detail", params: { id: created.id } });
+			}
+		}
+	} catch (error) {
+		alert(error instanceof Error ? error.message : "保存に失敗しました");
+	}
 };
 </script>
 

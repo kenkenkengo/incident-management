@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router';
-import { useRunbookStore } from '@/stores/runbook';
-import { onMounted, computed } from 'vue';
-import DOMPurify from 'dompurify';
-import { marked } from 'marked';
+import DOMPurify from "dompurify";
+import { marked } from "marked";
+import { computed, onMounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useRunbookStore } from "@/stores/runbook";
 
 const route = useRoute();
 const router = useRouter();
@@ -12,29 +12,31 @@ const store = useRunbookStore();
 const id = route.params.id as string;
 
 onMounted(() => {
-  store.fetchOne(id);
+	store.fetchOne(id);
 });
 
 const renderedContent = computed(() => {
-  if (!store.currentRunbook) return '';
-  return DOMPurify.sanitize(marked.parse(store.currentRunbook.content) as string);
+	if (!store.currentRunbook) return "";
+	return DOMPurify.sanitize(
+		marked.parse(store.currentRunbook.content) as string,
+	);
 });
 
 const goToEdit = () => {
-  router.push({ name: 'runbook-edit', params: { id } });
+	router.push({ name: "runbook-edit", params: { id } });
 };
 
 const handleDelete = async () => {
-  if (confirm('このRunbookを削除してもよろしいですか？')) {
-    try {
-      const success = await store.remove(id);
-      if (success) {
-        router.push({ name: 'runbook-list' });
-      }
-    } catch (error) {
-      alert(error instanceof Error ? error.message : '削除に失敗しました');
-    }
-  }
+	if (confirm("このRunbookを削除してもよろしいですか？")) {
+		try {
+			const success = await store.remove(id);
+			if (success) {
+				router.push({ name: "runbook-list" });
+			}
+		} catch (error) {
+			alert(error instanceof Error ? error.message : "削除に失敗しました");
+		}
+	}
 };
 </script>
 
@@ -62,7 +64,7 @@ const handleDelete = async () => {
         <footer>
           <small>作成：{{ new Date(store.currentRunbook.createdAt).toLocaleString("ja-JP") }}
             <br />
-            最終更新：{{ new Date(store.currentRunbook.updatedAt).toLocaleString("ja-JP") }}</small>
+            最終更新：{{ new Date(store.currentRunbook.updatedAt).toLocaleString("ja-JP") }}
           </small>
         </footer>
       </div>
