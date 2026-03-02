@@ -2,12 +2,29 @@
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useRunbookStore } from "@/stores/runbook";
+import { listTags } from "@/lib/api-client";
+import { useAuthStore } from "@/stores/auth";
+import TagInput from "@/components/TagInput.vue";
 
 const store = useRunbookStore();
+const authStore = useAuthStore();
 const router = useRouter();
 const tagsInput = ref("");
+const allTags = ref<string[]>([]);
 
-onMounted(() => store.fetchAll());
+onMounted(async () => {
+	store.fetchAll();
+	if (authStore.accessToken) {
+		try {
+			const res = await listTags(authStore.accessToken);
+			if (res.success && res.data) {
+				allTags.value = res.data;
+			}
+		} catch {
+			// タグ取得エラーは無視
+		}
+	}
+});
 
 const applyFilter = () => {
 	const tags = tagsInput.value
@@ -46,9 +63,10 @@ const goToNew = () => {
     <div class="filter-bar">
       <div class="filter-input-wrap">
         <span class="filter-icon mono text-muted">#</span>
-        <input
+        <TagInput
           v-model="tagsInput"
-          class="filter-input"
+          :suggestions="allTags"
+          class="filter-tag-input"
           placeholder="タグで絞り込み（カンマ区切りでAND検索）"
           @keyup.enter="applyFilter"
         />
@@ -202,7 +220,12 @@ const goToNew = () => {
   user-select: none;
 }
 
-.filter-input {
+.filter-tag-input {
+  flex: 1;
+}
+
+.filter-tag-input :deep(input) {
+  width: 100%;
   padding-left: calc(var(--space-md) + 16px + var(--space-xs));
   padding-right: var(--space-xl);
 }

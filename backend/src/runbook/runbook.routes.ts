@@ -20,8 +20,11 @@ export const runbookRoutes = new Hono()
 
 runbookRoutes.get("/", async (c) => {
   try {
-    const tag = c.req.query("tag") || undefined;
-    const runbooks = await listAll(tag);
+    const tagParam = c.req.query("tag");
+    const tags = tagParam
+      ? tagParam.split(",").map((t) => t.trim()).filter(Boolean)
+      : undefined;
+    const runbooks = await listAll(tags);
     return successResponse(c, runbooks);
   } catch (error) {
     console.error("Error listing runbooks", error);

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useRunbookStore } from "@/stores/runbook";
 import { listTags } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth";
+import TagInput from "@/components/TagInput.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -149,16 +150,12 @@ const handleSubmit = async () => {
             </div>
             <div class="side-card-body">
               <label for="tags">カンマ区切りで入力</label>
-              <input
+              <TagInput
                 id="tags"
                 v-model="tagsInput"
-                type="text"
+                :suggestions="tagSuggestions"
                 placeholder="DB, Network, Deploy"
-                list="tag-suggestions"
               />
-              <datalist id="tag-suggestions">
-                <option v-for="tag in tagSuggestions" :key="tag" :value="tag" />
-              </datalist>
 
               <!-- Tag preview -->
               <div v-if="tagsInput" class="tag-preview">

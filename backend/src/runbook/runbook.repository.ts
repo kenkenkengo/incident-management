@@ -6,19 +6,23 @@ import type { CreateRunbookRequest, Runbook, UpdateRunbookRequest } from "./runb
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const TABLE_NAME = Resource.RunbookTable.name;
 
-export const listAll = async (tag?: string): Promise<Runbook[]> => {
-  const params = tag ? {
-    TableName: TABLE_NAME,
-    FilterExpression: "contains (tags, :tag)",
-    ExpressionAttributeValues: {
-      ":tag": tag,
-    },
-  } : {
-    TableName: TABLE_NAME,
-  };
+export const listAll = async (tags?: string[]): Promise<Runbook[]> => {
+  if (!tags || tags.length === 0) {
+    const result = await client.send(new ScanCommand({ TableName: TABLE_NAME }));
+    return (result.Items ?? []) as Runbook[];
+  }
 
-  const command = new ScanCommand(params);
-  const result = await client.send(command);
+  const filterExpression = tags.map((_, i) => `contains(tags, :tag${i})`).join(" AND ");
+  const expressionAttributeValues = tags.reduce<Record<string, string>>(
+    (acc, tag, i) => ({ ...acc, [`:tag${i}`]: tag }),
+    {},
+  );
+
+  const result = await client.send(new ScanCommand({
+    TableName: TABLE_NAME,
+    FilterExpression: filterExpression,
+    ExpressionAttributeValues: expressionAttributeValues,
+  }));
   return (result.Items ?? []) as Runbook[];
 }
 

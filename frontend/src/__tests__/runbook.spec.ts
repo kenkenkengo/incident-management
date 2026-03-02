@@ -33,7 +33,7 @@ describe("useRunbookStore", () => {
       await store.fetchAll();
 
       expect(store.runbooks).toHaveLength(1);
-      expect(store.runbooks[0].title).toBe("テスト手順書");
+      expect(store.runbooks[0]?.title).toBe("テスト手順書");
       expect(store.error).toBeNull();
     });
 
@@ -115,7 +115,7 @@ describe("useRunbookStore", () => {
 
   describe("remove", () => {
     it("削除に成功したらstoreからも除去する", async () => {
-      vi.spyOn(apiClient, "deleteRunbook").mockResolvedValueOnce(undefined);
+      vi.spyOn(apiClient, "deleteRunbook").mockResolvedValueOnce({ success: true });
       const store = useRunbookStore();
       store.runbooks = [mockRunbook];
 
