@@ -10,6 +10,10 @@ declare module "sst" {
       "type": "sst.aws.ApiGatewayV2"
       "url": string
     }
+    "RunbookTable": {
+      "name": string
+      "type": "sst.aws.Dynamo"
+    }
     "Site": {
       "type": "sst.aws.StaticSite"
       "url": string
