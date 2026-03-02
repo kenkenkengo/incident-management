@@ -18,6 +18,15 @@ const createSite = (api: sst.aws.ApiGatewayV2) => {
 	});
 };
 
+const createRunbookTable = () => {
+	return new sst.aws.Dynamo("RunbookTable", {
+		fields: {
+			id: "string"
+		},
+		primaryIndex: { hashKey: "id" },
+	});
+}
+
 const createUserPool = () => {
 	const userPool = new sst.aws.CognitoUserPool("UserPool", {
 		usernames: ["email"],
@@ -62,8 +71,9 @@ const addRoutes = (
 	userPool: sst.aws.CognitoUserPool,
 	client: CognitoUserPoolClient,
 	site: sst.aws.StaticSite,
+	runbookTable: sst.aws.Dynamo,
 ) => {
-	const defaultLink = [userPool, client, site];
+	const defaultLink = [userPool, client, site, runbookTable];
 
 	api.route("POST /auth/signin", {
 		handler: "src/index.handler",
@@ -113,6 +123,7 @@ export default $config({
 		const { userPool, client } = createUserPool();
 		const { api, authorizer } = createApi(userPool, client);
 		const site = createSite(api);
-		addRoutes(api, authorizer, userPool, client, site);
+		const runbookTable = createRunbookTable();
+		addRoutes(api, authorizer, userPool, client, site, runbookTable);
 	},
 });
