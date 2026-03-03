@@ -2,6 +2,19 @@
 
 import type { CognitoUserPoolClient } from "./.sst/platform/src/components/aws/cognito-user-pool-client";
 
+// sst secrets
+const slackBotToken = new sst.Secret("SlackBotToken")
+const slackSigningSecret = new sst.Secret("SlackSigningSecret")
+
+// DynamoDB table
+const incidentTable = new sst.aws.Dynamo("IncidentTable", {
+	fields: {
+		pk: "string",
+		sk: "string",
+	},
+	primaryIndex: { hashKey: "pk", rangeKey: "sk" },
+});
+
 const createSite = (api: sst.aws.ApiGatewayV2) => {
 	return new sst.aws.StaticSite("Site", {
 		path: "../frontend",
@@ -74,6 +87,11 @@ const addRoutes = (
 	runbookTable: sst.aws.Dynamo,
 ) => {
 	const defaultLink = [userPool, client, site, runbookTable];
+
+	api.route("POST /slack/events", {
+		handler: "src/slack/slack.handler.handler",
+		link: [incidentTable, slackBotToken, slackSigningSecret],
+	})
 
 	api.route("POST /auth/signin", {
 		handler: "src/index.handler",
