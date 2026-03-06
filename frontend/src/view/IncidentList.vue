@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { type Incident, listIncidents } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth";
-import { listIncidents, type Incident } from "@/lib/api-client";
 
 const router = useRouter();
 const authStore = useAuthStore();

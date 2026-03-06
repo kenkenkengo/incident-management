@@ -1,19 +1,28 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import DOMPurify from "dompurify";
+import { marked } from "marked";
+import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useAuthStore } from "@/stores/auth";
 import {
+	generatePostmortem,
 	getIncident,
 	getIncidentMessages,
+	getPostmortem,
 	type Incident,
 	type IncidentMessage,
+	type Postmortem,
 } from "@/lib/api-client";
+import { useAuthStore } from "@/stores/auth";
 
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const incident = ref<Incident | null>(null);
 const messages = ref<IncidentMessage[]>([]);
+const postmortem = ref<Postmortem | null>(null);
+const postmortemHtml = ref("");
+const generatingPostmortem = ref(false);
+const postmortemError = ref("");
 const loading = ref(true);
 const error = ref("");
 
@@ -33,6 +42,14 @@ onMounted(async () => {
 		}
 		if (messagesRes.success && messagesRes.data) {
 			messages.value = messagesRes.data;
+		}
+
+		const pmRes = await getPostmortem(authStore.accessToken, id);
+		if (pmRes.success && pmRes.data) {
+			postmortem.value = pmRes.data;
+			postmortemHtml.value = DOMPurify.sanitize(
+				await marked.parse(pmRes.data.content),
+			);
 		}
 	} catch {
 		error.value = "Failed to load incident";
@@ -55,7 +72,32 @@ const formatDuration = (inc: Incident) => {
 
 const formatMessageTime = (iso: string) => {
 	const d = new Date(iso);
-	return d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+	return d.toLocaleTimeString("ja-JP", {
+		hour: "2-digit",
+		minute: "2-digit",
+		second: "2-digit",
+	});
+};
+
+const handleGeneratePostmortem = async () => {
+	if (!authStore.accessToken) return;
+	generatingPostmortem.value = true;
+	postmortemError.value = "";
+	try {
+		const res = await generatePostmortem(authStore.accessToken, id);
+		if (res.success && res.data) {
+			postmortem.value = res.data;
+			postmortemHtml.value = DOMPurify.sanitize(
+				await marked.parse(res.data.content),
+			);
+		} else {
+			postmortemError.value = res.error ?? "Failed to generate postmortem";
+		}
+	} catch {
+		postmortemError.value = "Failed to generate postmortem";
+	} finally {
+		generatingPostmortem.value = false;
+	}
 };
 </script>
 
@@ -115,6 +157,42 @@ const formatMessageTime = (iso: string) => {
 						<span class="meta-value mono">{{ messages.length }}件</span>
 					</div>
 				</div>
+			</div>
+
+			<!-- Postmortem section -->
+			<div class="article-divider">
+				<span class="divider-label mono text-xs">POSTMORTEM</span>
+			</div>
+
+			<div v-if="postmortem" class="postmortem-section">
+				<div class="postmortem-meta">
+					<span class="mono text-xs text-muted">
+						生成日時: {{ formatDate(postmortem.generatedAt) }}
+					</span>
+					<button
+						class="btn-regenerate"
+						:disabled="generatingPostmortem"
+						@click="handleGeneratePostmortem"
+					>
+						{{ generatingPostmortem ? "生成中..." : "再生成" }}
+					</button>
+				</div>
+				<div class="postmortem-content markdown-body" v-html="postmortemHtml" />
+			</div>
+
+			<div v-else class="postmortem-empty">
+				<p v-if="postmortemError" class="postmortem-error mono text-xs">{{ postmortemError }}</p>
+				<button
+					v-if="incident.status === 'closed' && messages.length > 0"
+					class="btn-generate"
+					:disabled="generatingPostmortem"
+					@click="handleGeneratePostmortem"
+				>
+					{{ generatingPostmortem ? "生成中..." : "ポストモーテムを生成" }}
+				</button>
+				<span v-else class="mono text-xs text-muted">
+					{{ incident.status === "active" ? "インシデント終了後に生成できます" : "メッセージがありません" }}
+				</span>
 			</div>
 
 			<!-- Divider -->
@@ -379,5 +457,104 @@ const formatMessageTime = (iso: string) => {
 	color: var(--text-primary);
 	white-space: pre-wrap;
 	word-break: break-word;
+}
+
+/* Postmortem */
+.postmortem-section {
+	margin-bottom: var(--space-lg);
+}
+
+.postmortem-meta {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: var(--space-md);
+}
+
+.postmortem-content {
+	background: var(--bg-surface);
+	border: 1px solid var(--border-subtle);
+	border-radius: 8px;
+	padding: var(--space-lg);
+	line-height: 1.7;
+}
+
+.postmortem-content :deep(h2) {
+	font-size: 1.25rem;
+	font-weight: 600;
+	margin-top: var(--space-lg);
+	margin-bottom: var(--space-sm);
+	color: var(--text-primary);
+}
+
+.postmortem-content :deep(h2:first-child) {
+	margin-top: 0;
+}
+
+.postmortem-content :deep(ul) {
+	padding-left: var(--space-lg);
+	margin-bottom: var(--space-md);
+}
+
+.postmortem-content :deep(li) {
+	margin-bottom: var(--space-xs);
+}
+
+.postmortem-content :deep(p) {
+	margin-bottom: var(--space-sm);
+}
+
+.postmortem-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-sm);
+	padding: var(--space-xl);
+	text-align: center;
+}
+
+.postmortem-error {
+	color: var(--status-danger);
+}
+
+.btn-generate,
+.btn-regenerate {
+	font-family: var(--font-mono);
+	font-size: 0.8rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	padding: 8px 20px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.btn-generate {
+	color: var(--bg-base);
+	background: var(--accent);
+	border: 1px solid var(--accent);
+}
+
+.btn-generate:hover:not(:disabled) {
+	opacity: 0.9;
+}
+
+.btn-generate:disabled,
+.btn-regenerate:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.btn-regenerate {
+	color: var(--text-secondary);
+	background: transparent;
+	border: 1px solid var(--border-default);
+	font-size: 0.75rem;
+	padding: 4px 12px;
+}
+
+.btn-regenerate:hover:not(:disabled) {
+	color: var(--accent);
+	border-color: var(--accent);
 }
 </style>

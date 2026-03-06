@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
 import { createPinia } from "pinia";
+import { describe, expect, it } from "vitest";
 import { createRouter, createWebHistory } from "vue-router";
 import App from "../App.vue";
 

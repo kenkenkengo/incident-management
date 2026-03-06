@@ -47,14 +47,20 @@ const checkUnauthorized = async (response: Response): Promise<Response> => {
 		throw { name: "UnauthorizedError", message: "Unauthorized", status: 401 };
 	}
 	return response;
-}
+};
 
 export const listTags = async (accessToken: string) => {
 	try {
 		const res = await checkUnauthorized(
-			await fetch(`/api/runbooks/tags`, { headers: runbookHeaders(accessToken) })
+			await fetch(`/api/runbooks/tags`, {
+				headers: runbookHeaders(accessToken),
+			}),
 		);
-		return res.json() as Promise<{ success: boolean; data?: string[]; error?: string }>;
+		return res.json() as Promise<{
+			success: boolean;
+			data?: string[];
+			error?: string;
+		}>;
 	} catch (e: any) {
 		if (e?.status === 401) return { success: false, error: "Unauthorized" };
 		throw e;
@@ -62,23 +68,30 @@ export const listTags = async (accessToken: string) => {
 };
 
 export const listRunbooks = async (accessToken: string, tags?: string[]) => {
-	const url = tags ? `/api/runbooks?tag=${encodeURIComponent(tags.join(","))}` : "/api/runbooks";
+	const url = tags
+		? `/api/runbooks?tag=${encodeURIComponent(tags.join(","))}`
+		: "/api/runbooks";
 	try {
 		const res = await checkUnauthorized(
-			await fetch(url, { headers: runbookHeaders(accessToken) })
+			await fetch(url, { headers: runbookHeaders(accessToken) }),
 		);
-		return res.json() as Promise<{ success: boolean; data?: Runbook[]; error?: string }>;
+		return res.json() as Promise<{
+			success: boolean;
+			data?: Runbook[];
+			error?: string;
+		}>;
 	} catch (e: any) {
 		if (e?.status === 401) return { success: false, error: "Unauthorized" };
 		throw e;
 	}
 };
 
-
 export const getRunbook = async (accessToken: string, id: string) => {
 	try {
 		const res = await checkUnauthorized(
-			await fetch(`/api/runbooks/${id}`, { headers: runbookHeaders(accessToken) })
+			await fetch(`/api/runbooks/${id}`, {
+				headers: runbookHeaders(accessToken),
+			}),
 		);
 		return res.json() as Promise<{
 			success: boolean;
@@ -101,7 +114,7 @@ export const createRunbook = async (
 				method: "POST",
 				headers: runbookHeaders(accessToken),
 				body: JSON.stringify(input),
-			})
+			}),
 		);
 		return res.json() as Promise<{
 			success: boolean;
@@ -125,7 +138,7 @@ export const updateRunbook = async (
 				method: "PUT",
 				headers: runbookHeaders(accessToken),
 				body: JSON.stringify(input),
-			})
+			}),
 		);
 		return res.json() as Promise<{
 			success: boolean;
@@ -144,7 +157,7 @@ export const deleteRunbook = async (accessToken: string, id: string) => {
 			await fetch(`/api/runbooks/${id}`, {
 				method: "DELETE",
 				headers: runbookHeaders(accessToken),
-			})
+			}),
 		);
 		return res.json() as Promise<{ success: boolean; error?: string }>;
 	} catch (e: any) {
@@ -174,17 +187,33 @@ export type IncidentMessage = {
 	readonly recordedAt: string;
 };
 
+export type Postmortem = {
+	readonly incidentId: string;
+	readonly content: string;
+	readonly generatedAt: string;
+	readonly modelId: string;
+};
+
 const authHeaders = (accessToken: string) => ({
 	Authorization: `Bearer ${accessToken}`,
 });
 
-export const listIncidents = async (accessToken: string, status?: "active" | "closed") => {
+export const listIncidents = async (
+	accessToken: string,
+	status?: "active" | "closed",
+) => {
 	const params = status ? `?status=${status}` : "";
 	try {
 		const res = await checkUnauthorized(
-			await fetch(`/api/incidents${params}`, { headers: authHeaders(accessToken) })
+			await fetch(`/api/incidents${params}`, {
+				headers: authHeaders(accessToken),
+			}),
 		);
-		return res.json() as Promise<{ success: boolean; data?: Incident[]; error?: string }>;
+		return res.json() as Promise<{
+			success: boolean;
+			data?: Incident[];
+			error?: string;
+		}>;
 	} catch (e: any) {
 		if (e?.status === 401) return { success: false, error: "Unauthorized" };
 		throw e;
@@ -194,9 +223,15 @@ export const listIncidents = async (accessToken: string, status?: "active" | "cl
 export const getIncident = async (accessToken: string, id: string) => {
 	try {
 		const res = await checkUnauthorized(
-			await fetch(`/api/incidents/${id}`, { headers: authHeaders(accessToken) })
+			await fetch(`/api/incidents/${id}`, {
+				headers: authHeaders(accessToken),
+			}),
 		);
-		return res.json() as Promise<{ success: boolean; data?: Incident; error?: string }>;
+		return res.json() as Promise<{
+			success: boolean;
+			data?: Incident;
+			error?: string;
+		}>;
 	} catch (e: any) {
 		if (e?.status === 401) return { success: false, error: "Unauthorized" };
 		throw e;
@@ -206,9 +241,52 @@ export const getIncident = async (accessToken: string, id: string) => {
 export const getIncidentMessages = async (accessToken: string, id: string) => {
 	try {
 		const res = await checkUnauthorized(
-			await fetch(`/api/incidents/${id}/messages`, { headers: authHeaders(accessToken) })
+			await fetch(`/api/incidents/${id}/messages`, {
+				headers: authHeaders(accessToken),
+			}),
 		);
-		return res.json() as Promise<{ success: boolean; data?: IncidentMessage[]; error?: string }>;
+		return res.json() as Promise<{
+			success: boolean;
+			data?: IncidentMessage[];
+			error?: string;
+		}>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
+};
+
+export const generatePostmortem = async (accessToken: string, id: string) => {
+	try {
+		const res = await checkUnauthorized(
+			await fetch(`/api/incidents/${id}/postmortem`, {
+				method: "POST",
+				headers: authHeaders(accessToken),
+			}),
+		);
+		return res.json() as Promise<{
+			success: boolean;
+			data?: Postmortem;
+			error?: string;
+		}>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
+};
+
+export const getPostmortem = async (accessToken: string, id: string) => {
+	try {
+		const res = await checkUnauthorized(
+			await fetch(`/api/incidents/${id}/postmortem`, {
+				headers: authHeaders(accessToken),
+			}),
+		);
+		return res.json() as Promise<{
+			success: boolean;
+			data?: Postmortem;
+			error?: string;
+		}>;
 	} catch (e: any) {
 		if (e?.status === 401) return { success: false, error: "Unauthorized" };
 		throw e;

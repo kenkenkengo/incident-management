@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { MdEditor } from "md-editor-v3";
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useRunbookStore } from "@/stores/runbook";
+import TagInput from "@/components/TagInput.vue";
 import { listTags } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth";
-import TagInput from "@/components/TagInput.vue";
-import { MdEditor } from "md-editor-v3";
+import { useRunbookStore } from "@/stores/runbook";
 import "md-editor-v3/lib/style.css";
 
 const route = useRoute();

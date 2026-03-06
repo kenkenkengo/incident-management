@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import CommonHeader from "@/components/CommonHeader.vue";
-import { useRoute } from "vue-router";
 import { computed } from "vue";
+import { useRoute } from "vue-router";
+import CommonHeader from "@/components/CommonHeader.vue";
 
 const route = useRoute();
 const isSignIn = computed(() => route.name === "signin");

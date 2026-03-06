@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { MdCatalog, MdPreview } from "md-editor-v3";
 import { onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useRunbookStore } from "@/stores/runbook";
-import { MdPreview, MdCatalog } from "md-editor-v3";
 import "md-editor-v3/lib/preview.css";
 
 const route = useRoute();

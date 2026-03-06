@@ -3,9 +3,9 @@ import { handle } from "hono/aws-lambda";
 import { cors } from "hono/cors";
 import { Resource } from "sst";
 import { authRoutes } from "./auth/auth.routes";
+import { incidentRoutes } from "./incident/incident.routes";
 import { errorHandler } from "./middleware/error-handler.middleware";
 import { runbookRoutes } from "./runbook/runbook.routes";
-import { incidentRoutes } from "./incident/incident.routes";
 
 const app = new Hono();
 
@@ -18,7 +18,7 @@ app.use(
 		allowHeaders: ["Content-Type", "Authorization"],
 		maxAge: 86400,
 	}),
-)
+);
 
 app.onError(errorHandler);
 
@@ -33,7 +33,7 @@ app.get("/", (c) => {
 
 app.route("/auth", authRoutes);
 app.route("/runbooks", runbookRoutes);
-app.route("/incidents", incidentRoutes)
+app.route("/incidents", incidentRoutes);
 
 app.get("/api/me", (c) => {
 	const event = c.env as {
