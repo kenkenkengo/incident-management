@@ -2,19 +2,6 @@
 
 import type { CognitoUserPoolClient } from "./.sst/platform/src/components/aws/cognito-user-pool-client";
 
-// sst secrets
-const slackBotToken = new sst.Secret("SlackBotToken")
-const slackSigningSecret = new sst.Secret("SlackSigningSecret")
-
-// DynamoDB table
-const incidentTable = new sst.aws.Dynamo("IncidentTable", {
-	fields: {
-		pk: "string",
-		sk: "string",
-	},
-	primaryIndex: { hashKey: "pk", rangeKey: "sk" },
-});
-
 const createSite = (api: sst.aws.ApiGatewayV2) => {
 	return new sst.aws.StaticSite("Site", {
 		path: "../frontend",
@@ -38,6 +25,23 @@ const createRunbookTable = () => {
 		},
 		primaryIndex: { hashKey: "id" },
 	});
+}
+
+const createIncidentTable = () => {
+	return new sst.aws.Dynamo("IncidentTable", {
+		fields: {
+			pk: "string",
+			sk: "string",
+		},
+		primaryIndex: { hashKey: "pk", rangeKey: "sk" },
+	});
+}
+
+const createSlackSecrets = () => {
+	return {
+		botToken: new sst.Secret("SlackBotToken"),
+		signingSecret: new sst.Secret("SlackSigningSecret")
+	}
 }
 
 const createUserPool = () => {
@@ -85,12 +89,14 @@ const addRoutes = (
 	client: CognitoUserPoolClient,
 	site: sst.aws.StaticSite,
 	runbookTable: sst.aws.Dynamo,
+	incidentTable: sst.aws.Dynamo,
+	slackSecrets: { botToken: sst.Secret; signingSecret: sst.Secret }
 ) => {
-	const defaultLink = [userPool, client, site, runbookTable];
+	const defaultLink = [userPool, client, site, runbookTable, incidentTable];
 
 	api.route("POST /slack/events", {
 		handler: "src/slack/slack.handler.handler",
-		link: [incidentTable, slackBotToken, slackSigningSecret],
+		link: [incidentTable, slackSecrets.botToken, slackSecrets.signingSecret],
 	})
 
 	api.route("POST /auth/signin", {
@@ -142,6 +148,8 @@ export default $config({
 		const { api, authorizer } = createApi(userPool, client);
 		const site = createSite(api);
 		const runbookTable = createRunbookTable();
-		addRoutes(api, authorizer, userPool, client, site, runbookTable);
+		const incidentTable = createIncidentTable();
+		const slackSecrets = createSlackSecrets();
+		addRoutes(api, authorizer, userPool, client, site, runbookTable, incidentTable, slackSecrets);
 	},
 });
