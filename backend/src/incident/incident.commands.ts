@@ -4,6 +4,8 @@ import {
 	create,
 	findActiveByChannel,
 } from "../incident/incident.repository";
+import { listAll } from "../runbook/runbook.repository";
+import { searchRunbooks } from "../runbook/runbook.search";
 
 export const handleIncidentCommand = async ({
 	command,
@@ -30,9 +32,23 @@ export const handleIncidentCommand = async ({
 			command.channel_id,
 			command.user_id,
 		);
-		await respond(
-			`🚨 インシデント開始: "${incident.title}"\nこのチャンネルのメッセージを記録しています。`,
-		);
+
+		let message = `🚨 インシデント開始: "${incident.title}"\nこのチャンネルのメッセージを記録しています。`;
+
+		try {
+			const allRunbooks = await listAll();
+			const suggestions = searchRunbooks(allRunbooks, title);
+			if (suggestions.length > 0) {
+				const list = suggestions
+					.map((r) => `• *${r.title}*${r.tags.length > 0 ? ` [${r.tags.join(", ")}]` : ""}`)
+					.join("\n");
+				message += `\n\n📖 関連するランブックが見つかりました:\n${list}\nWebアプリで詳細を確認してください。`;
+			}
+		} catch (error) {
+			console.error("Error searching runbooks:", error);
+		}
+
+		await respond(message);
 		return;
 	}
 

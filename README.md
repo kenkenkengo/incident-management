@@ -245,6 +245,7 @@ npm run lint        # Biome (auto-fix)
 | GET | `/incidents/:id/messages` | メッセージ一覧（時系列） |
 | POST | `/incidents/:id/postmortem` | ポストモーテム生成 |
 | GET | `/incidents/:id/postmortem` | 保存済みポストモーテム取得 |
+| POST | `/incidents/:id/generate-runbook` | ポストモーテムからランブック草案生成 |
 
 ### Slack (署名検証)
 

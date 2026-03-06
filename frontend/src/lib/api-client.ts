@@ -194,6 +194,12 @@ export type Postmortem = {
 	readonly modelId: string;
 };
 
+export type RunbookDraft = {
+	readonly title: string;
+	readonly content: string;
+	readonly tags: readonly string[];
+};
+
 const authHeaders = (accessToken: string) => ({
 	Authorization: `Bearer ${accessToken}`,
 });
@@ -267,6 +273,28 @@ export const generatePostmortem = async (accessToken: string, id: string) => {
 		return res.json() as Promise<{
 			success: boolean;
 			data?: Postmortem;
+			error?: string;
+		}>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
+};
+
+export const generateRunbookFromPostmortem = async (
+	accessToken: string,
+	id: string,
+) => {
+	try {
+		const res = await checkUnauthorized(
+			await fetch(`/api/incidents/${id}/generate-runbook`, {
+				method: "POST",
+				headers: authHeaders(accessToken),
+			}),
+		);
+		return res.json() as Promise<{
+			success: boolean;
+			data?: RunbookDraft;
 			error?: string;
 		}>;
 	} catch (e: any) {

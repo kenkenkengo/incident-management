@@ -95,6 +95,7 @@ Generosity Incident Management — a monorepo with separate `backend/` and `fron
 | GET | `/incidents/:id/messages` | JWT | メッセージ一覧（時系列） |
 | POST | `/incidents/:id/postmortem` | JWT | ポストモーテム生成（Bedrock） |
 | GET | `/incidents/:id/postmortem` | JWT | 保存済みポストモーテム取得 |
+| POST | `/incidents/:id/generate-runbook` | JWT | ポストモーテムからランブック草案生成（Bedrock、保存はしない） |
 | POST | `/slack/events` | Slack署名 | Slack Bot イベント受信（コマンド + メッセージ） |
 
 ## Commands

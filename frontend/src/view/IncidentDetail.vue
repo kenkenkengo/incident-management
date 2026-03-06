@@ -5,6 +5,7 @@ import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
 	generatePostmortem,
+	generateRunbookFromPostmortem,
 	getIncident,
 	getIncidentMessages,
 	getPostmortem,
@@ -23,6 +24,7 @@ const postmortem = ref<Postmortem | null>(null);
 const postmortemHtml = ref("");
 const generatingPostmortem = ref(false);
 const postmortemError = ref("");
+const generatingRunbook = ref(false);
 const loading = ref(true);
 const error = ref("");
 
@@ -99,6 +101,27 @@ const handleGeneratePostmortem = async () => {
 		generatingPostmortem.value = false;
 	}
 };
+
+const handleGenerateRunbook = async () => {
+	if (!authStore.accessToken) return;
+	generatingRunbook.value = true;
+	try {
+		const res = await generateRunbookFromPostmortem(authStore.accessToken, id);
+		if (res.success && res.data) {
+			router.push({
+				name: "runbook-new",
+				query: { fromIncident: id },
+				state: { draft: JSON.stringify(res.data) },
+			});
+		} else {
+			postmortemError.value = res.error ?? "Failed to generate runbook draft";
+		}
+	} catch {
+		postmortemError.value = "Failed to generate runbook draft";
+	} finally {
+		generatingRunbook.value = false;
+	}
+};
 </script>
 
 <template>
@@ -169,13 +192,22 @@ const handleGeneratePostmortem = async () => {
 					<span class="mono text-xs text-muted">
 						生成日時: {{ formatDate(postmortem.generatedAt) }}
 					</span>
-					<button
-						class="btn-regenerate"
-						:disabled="generatingPostmortem"
-						@click="handleGeneratePostmortem"
-					>
-						{{ generatingPostmortem ? "生成中..." : "再生成" }}
-					</button>
+					<div class="postmortem-actions">
+						<button
+							class="btn-runbook"
+							:disabled="generatingRunbook"
+							@click="handleGenerateRunbook"
+						>
+							{{ generatingRunbook ? "生成中..." : "Runbookを生成" }}
+						</button>
+						<button
+							class="btn-regenerate"
+							:disabled="generatingPostmortem"
+							@click="handleGeneratePostmortem"
+						>
+							{{ generatingPostmortem ? "生成中..." : "再生成" }}
+						</button>
+					</div>
 				</div>
 				<div class="postmortem-content markdown-body" v-html="postmortemHtml" />
 			</div>
@@ -469,6 +501,35 @@ const handleGeneratePostmortem = async () => {
 	align-items: center;
 	justify-content: space-between;
 	margin-bottom: var(--space-md);
+}
+
+.postmortem-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-sm);
+}
+
+.btn-runbook {
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	padding: 4px 12px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	color: var(--bg-base);
+	background: var(--accent);
+	border: 1px solid var(--accent);
+}
+
+.btn-runbook:hover:not(:disabled) {
+	opacity: 0.9;
+}
+
+.btn-runbook:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 
 .postmortem-content {

@@ -7,7 +7,11 @@ import {
 	listMessages,
 	savePostmortem,
 } from "./incident.repository";
-import { generatePostmortem, MODEL_ID } from "./postmortem.service";
+import {
+	generatePostmortem,
+	generateRunbookDraft,
+	MODEL_ID,
+} from "./postmortem.service";
 
 export const incidentRoutes = new Hono();
 
@@ -66,6 +70,36 @@ incidentRoutes.post("/:id/postmortem", async (c) => {
 	} catch (error) {
 		console.error("Error generating postmortem", error);
 		return errorResponse(c, "Failed to generate postmortem", 500);
+	}
+});
+
+incidentRoutes.post("/:id/generate-runbook", async (c) => {
+	try {
+		const id = c.req.param("id");
+		const incident = await findById(id);
+		if (!incident) {
+			return errorResponse(c, "Incident not found", 404);
+		}
+
+		const postmortem = await getPostmortem(id);
+		if (!postmortem) {
+			return errorResponse(
+				c,
+				"Postmortem not found. Generate a postmortem first.",
+				400,
+			);
+		}
+
+		const draft = await generateRunbookDraft(
+			postmortem.content,
+			incident.title,
+		);
+		return successResponse(c, draft);
+	} catch (error) {
+		console.error("Error generating runbook draft", error);
+		const message =
+			error instanceof Error ? error.message : "Failed to generate runbook draft";
+		return errorResponse(c, message, 500);
 	}
 });
 

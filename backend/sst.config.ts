@@ -96,7 +96,12 @@ const addRoutes = (
 
 	api.route("POST /slack/events", {
 		handler: "src/slack/slack.handler.handler",
-		link: [incidentTable, slackSecrets.botToken, slackSecrets.signingSecret],
+		link: [
+			incidentTable,
+			runbookTable,
+			slackSecrets.botToken,
+			slackSecrets.signingSecret,
+		],
 	});
 
 	api.route("POST /auth/signin", {
