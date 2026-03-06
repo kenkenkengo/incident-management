@@ -16,7 +16,7 @@ export const handleIncidentCommand = async ({
 
     const existing = await findActiveByChannel(command.channel_id)
     if (existing) {
-      await respond('このチャンネルにはすでにアクティブなインシデントがあります："${existing.title}"')
+      await respond(`このチャンネルにはすでにアクティブなインシデントがあります："${existing.title}"`)
       return;
     }
 

@@ -1,4 +1,4 @@
-import { AwsLambdaReceiver } from "@slack/bolt"
+import { App, AwsLambdaReceiver } from "@slack/bolt"
 import { Resource } from "sst"
 import { handleIncidentCommand } from "../incident/incident.commands";
 import { handleMessageEvent } from "./message.events";
