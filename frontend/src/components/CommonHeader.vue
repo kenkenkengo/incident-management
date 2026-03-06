@@ -42,6 +42,14 @@ const handleSignOut = () => {
           <span class="nav-icon">≡</span>
           Runbooks
         </router-link>
+        <router-link
+          to="/incidents"
+          class="nav-item"
+          :class="{ active: route.name?.toString().startsWith('incident') }"
+        >
+          <span class="nav-icon">⚡</span>
+          Incidents
+        </router-link>
       </nav>
 
       <!-- Right side -->

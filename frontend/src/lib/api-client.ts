@@ -152,3 +152,65 @@ export const deleteRunbook = async (accessToken: string, id: string) => {
 		throw e;
 	}
 };
+
+// --- Incident API ---
+
+export type Incident = {
+	readonly id: string;
+	readonly channelId: string;
+	readonly title: string;
+	readonly status: "active" | "closed";
+	readonly startedAt: string;
+	readonly endedAt?: string;
+	readonly startedBy: string;
+};
+
+export type IncidentMessage = {
+	readonly incidentId: string;
+	readonly messageTs: string;
+	readonly userId: string;
+	readonly userName: string;
+	readonly text: string;
+	readonly recordedAt: string;
+};
+
+const authHeaders = (accessToken: string) => ({
+	Authorization: `Bearer ${accessToken}`,
+});
+
+export const listIncidents = async (accessToken: string, status?: "active" | "closed") => {
+	const params = status ? `?status=${status}` : "";
+	try {
+		const res = await checkUnauthorized(
+			await fetch(`/api/incidents${params}`, { headers: authHeaders(accessToken) })
+		);
+		return res.json() as Promise<{ success: boolean; data?: Incident[]; error?: string }>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
+};
+
+export const getIncident = async (accessToken: string, id: string) => {
+	try {
+		const res = await checkUnauthorized(
+			await fetch(`/api/incidents/${id}`, { headers: authHeaders(accessToken) })
+		);
+		return res.json() as Promise<{ success: boolean; data?: Incident; error?: string }>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
+};
+
+export const getIncidentMessages = async (accessToken: string, id: string) => {
+	try {
+		const res = await checkUnauthorized(
+			await fetch(`/api/incidents/${id}/messages`, { headers: authHeaders(accessToken) })
+		);
+		return res.json() as Promise<{ success: boolean; data?: IncidentMessage[]; error?: string }>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
+};

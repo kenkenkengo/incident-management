@@ -10,6 +10,10 @@ declare module "sst" {
       "type": "sst.aws.ApiGatewayV2"
       "url": string
     }
+    "IncidentTable": {
+      "name": string
+      "type": "sst.aws.Dynamo"
+    }
     "RunbookTable": {
       "name": string
       "type": "sst.aws.Dynamo"
@@ -17,6 +21,14 @@ declare module "sst" {
     "Site": {
       "type": "sst.aws.StaticSite"
       "url": string
+    }
+    "SlackBotToken": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "SlackSigningSecret": {
+      "type": "sst.sst.Secret"
+      "value": string
     }
     "UserPool": {
       "id": string

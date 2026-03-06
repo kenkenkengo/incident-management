@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import Dashboard from "@/view/Dashboard.vue";
+import IncidentDetail from "@/view/IncidentDetail.vue";
+import IncidentList from "@/view/IncidentList.vue";
 import RunbookDetail from "@/view/RunbookDetail.vue";
 import RunbookForm from "@/view/RunbookForm.vue";
 import RunbookList from "@/view/RunbookList.vue";
@@ -38,6 +40,16 @@ const router = createRouter({
 			path: "/runbooks/new",
 			name: "runbook-new",
 			component: RunbookForm,
+		},
+		{
+			path: "/incidents",
+			name: "incident-list",
+			component: IncidentList,
+		},
+		{
+			path: "/incidents/:id",
+			name: "incident-detail",
+			component: IncidentDetail,
 		},
 	],
 });
