@@ -50,6 +50,7 @@ const createApi = (
 		name: "originVerifyAuthorizer",
 		lambda: {
 			identitySources: ["$request.header.x-origin-verify"],
+			ttl: "5 minutes",
 			function: {
 				handler: "src/authorizer.handler",
 				runtime: "nodejs22.x",
@@ -92,7 +93,7 @@ const createTokenRotation = (secret: aws.secretsmanager.Secret, siteDistribution
 			},
 			{
 				actions: ["cloudfront:GetDistribution", "cloudfront:UpdateDistribution", "cloudfront:CreateInvalidation"],
-				resources: ["*"],
+				resources: [$interpolate`arn:aws:cloudfront::${aws.getCallerIdentityOutput().accountId}:distribution/${siteDistributionId}`],
 			}
 		]
 	})
@@ -152,6 +153,13 @@ const createSite = (api: sst.aws.ApiGatewayV2, secret: sst.Secret) => {
 						originRequestPolicyId: "b689b0a8-53d0-40ab-baf2-68738e2966ac",
 					}
 				]
+
+				args.transform = {
+					...args.transform,
+					distribution: (_distArgs, opts) => { // ローテーションでCloudFrontのDistributionConfigを更新するため、sstの管理外にする
+						opts.ignoreChanges = ["origins"];
+					}
+				}
 			}
 		}
 	})
@@ -297,5 +305,12 @@ export default $config({
 			incidentTable,
 			slackSecrets,
 		);
+		// ローテーション設定（本番・dev共通）
+		if (!$dev) {
+			createTokenRotation(
+				rotationSecret,
+				site.nodes.cdn?.nodes.distribution.id!,
+			);
+		}
 	},
 });

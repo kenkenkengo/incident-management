@@ -14,6 +14,10 @@ declare module "sst" {
       "name": string
       "type": "sst.aws.Dynamo"
     }
+    "OriginVerifyToken": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
     "RunbookTable": {
       "name": string
       "type": "sst.aws.Dynamo"
@@ -29,6 +33,10 @@ declare module "sst" {
     "SlackSigningSecret": {
       "type": "sst.sst.Secret"
       "value": string
+    }
+    "TokenRotation": {
+      "name": string
+      "type": "sst.aws.Function"
     }
     "UserPool": {
       "id": string

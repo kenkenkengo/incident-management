@@ -7,7 +7,6 @@ import {
   CloudFrontClient,
   GetDistributionConfigCommand,
   UpdateDistributionCommand,
-  CreateInvalidationCommand,
 } from "@aws-sdk/client-cloudfront";
 import { randomUUID } from "crypto";
 
@@ -22,6 +21,7 @@ export const handler = async () => {
   const current = await secretsClient.send(
     new GetSecretValueCommand({ SecretId: secretId }),
   );
+  const previousSecret = current.SecretString!;
   const currentTokens = JSON.parse(current.SecretString!);
 
   // 2. 新トークン生成、旧トークンを保持
@@ -36,47 +36,43 @@ export const handler = async () => {
     }),
   );
 
-  // 3. CloudFrontのカスタムヘッダーを更新
-  const distConfig = await cfClient.send(
-    new GetDistributionConfigCommand({ Id: distributionId }),
-  );
-  const config = distConfig.DistributionConfig!;
-  const etag = distConfig.ETag!;
-
-  // apiOriginのx-origin-verifyヘッダーを更新
-  const apiOrigin = config.Origins?.Items?.find(
-    (o) => o.Id === "apiOrigin",
-  );
-  if (apiOrigin?.CustomHeaders?.Items) {
-    const header = apiOrigin.CustomHeaders.Items.find(
-      (h) => h.HeaderName === "x-origin-verify",
+  try {
+    // 3. CloudFrontのカスタムヘッダーを更新
+    const distConfig = await cfClient.send(
+      new GetDistributionConfigCommand({ Id: distributionId }),
     );
-    if (header) {
-      header.HeaderValue = newToken;
+    const config = distConfig.DistributionConfig!;
+    const etag = distConfig.ETag!;
+
+    // apiOriginのx-origin-verifyヘッダーを更新
+    const apiOrigin = config.Origins?.Items?.find(
+      (o) => o.Id === "apiOrigin",
+    );
+    if (apiOrigin?.CustomHeaders?.Items) {
+      const header = apiOrigin.CustomHeaders.Items.find(
+        (h) => h.HeaderName === "x-origin-verify",
+      );
+      if (header) {
+        header.HeaderValue = newToken;
+      }
     }
+
+    await cfClient.send(
+      new UpdateDistributionCommand({
+        Id: distributionId,
+        DistributionConfig: config,
+        IfMatch: etag,
+      }),
+    );
+  } catch (error) {
+    await secretsClient.send(
+      new PutSecretValueCommand({
+        SecretId: secretId,
+        SecretString: previousSecret, // ロールバック
+      }),
+    );
+    throw new Error(
+      `CloudFront update failed, secret rolled back: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
-
-  await cfClient.send(
-    new UpdateDistributionCommand({
-      Id: distributionId,
-      DistributionConfig: config,
-      IfMatch: etag,
-    }),
-  );
-
-  // 4. キャッシュ無効化
-  await cfClient.send(
-    new CreateInvalidationCommand({
-      DistributionId: distributionId,
-      InvalidationBatch: {
-        CallerReference: `rotation-${Date.now()}`,
-        Paths: {
-          Quantity: 1,
-          Items: ["/api/*"],
-        },
-      },
-    }),
-  );
-
-  console.log("Token rotation completed successfully");
 };
