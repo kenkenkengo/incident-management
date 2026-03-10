@@ -5,3 +5,6 @@
 - backlogに書き込めると良さそう
 - 何が起きたのか？から最終的に情報をまとめやすい動線
 - https://www.atlassian.com/ja/incident-management/devops/chatops
+
+cloudfrontからじゃないとapiを叩けなくする
+テーブル構成もできるだけ1テーブルに寄せたいな〜

@@ -73,6 +73,9 @@ npx sst secret set SlackBotToken xoxb-xxxx-xxxx-xxxx
 
 # Slack Signing Secret
 npx sst secret set SlackSigningSecret xxxxxxxxxxxxxxxx
+
+# 初回のトークン
+npx sst secret set OriginVerifyToken $(uuidgen)
 ```
 
 > Secret の取得方法は後述の「[Slack App の作成](#4-slack-app-の作成)」を参照。
