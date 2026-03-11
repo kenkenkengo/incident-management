@@ -53,6 +53,7 @@ Generosity Incident Management — a monorepo with separate `backend/` and `fron
 - `backend/src/runbook/runbook.repository.ts` — DynamoDB アクセス層
 - `backend/src/runbook/runbook.types.ts` — ランブック型定義
 - `backend/src/runbook/runbook.validators.ts` — Zod バリデーションスキーマ（runbook）
+- `backend/src/runbook/runbook.search.ts` — ランブック検索・スコアリングロジック
 - `backend/src/incident/incident.types.ts` — インシデント型定義（Incident, IncidentMessage, Postmortem）
 - `backend/src/incident/incident.repository.ts` — IncidentTable DynamoDB アクセス層（単一テーブル設計: METADATA/MSG#/POSTMORTEM）
 - `backend/src/incident/incident.routes.ts` — インシデント REST API エンドポイント
@@ -70,6 +71,7 @@ Generosity Incident Management — a monorepo with separate `backend/` and `fron
 - `frontend/src/components/CommonHeader.vue` — 共通ヘッダー（ナビ + サインアウト）
 - `frontend/src/lib/api-client.ts` — API クライアント（signIn, refreshTokens）
 - `frontend/src/stores/auth.ts` — 認証 Pinia ストア（localStorage 永続化）
+- `frontend/src/stores/runbook.ts` — ランブック Pinia ストア（CRUD 操作）
 - `frontend/biome.json` — Biome v2 リンター/フォーマッター設定
 - `frontend/src/view/RunbookList.vue` — ランブック一覧ページ
 - `frontend/src/view/RunbookDetail.vue` — ランブック詳細ページ（Markdown レンダリング）
@@ -110,7 +112,7 @@ cd backend
 npm install
 npm run dev          # SST dev mode (local Lambda emulation)
 npm run build        # esbuild bundle
-npm run deploy       # build → zip → update Lambda
+npm run deploy       # sst deploy (SST によるデプロイ)
 npm run lint         # Biome check --write (auto-fix)
 ```
 
