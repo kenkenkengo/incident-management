@@ -8,17 +8,23 @@ const router = useRouter();
 const authStore = useAuthStore();
 const incidents = ref<Incident[]>([]);
 const loading = ref(true);
+const loadingMore = ref(false);
 const error = ref("");
 const statusFilter = ref<"active" | "closed" | undefined>(undefined);
+const nextCursor = ref<string | null>(null);
 
 const fetchIncidents = async () => {
 	loading.value = true;
 	error.value = "";
+	nextCursor.value = null;
 	try {
 		if (!authStore.accessToken) return;
-		const res = await listIncidents(authStore.accessToken, statusFilter.value);
+		const res = await listIncidents(authStore.accessToken, {
+			status: statusFilter.value,
+		});
 		if (res.success && res.data) {
 			incidents.value = res.data;
+			nextCursor.value = res.meta?.nextCursor ?? null;
 		} else {
 			error.value = res.error ?? "Failed to load incidents";
 		}
@@ -26,6 +32,25 @@ const fetchIncidents = async () => {
 		error.value = "Failed to load incidents";
 	} finally {
 		loading.value = false;
+	}
+};
+
+const fetchMore = async () => {
+	if (!nextCursor.value || !authStore.accessToken) return;
+	loadingMore.value = true;
+	try {
+		const res = await listIncidents(authStore.accessToken, {
+			status: statusFilter.value,
+			cursor: nextCursor.value,
+		});
+		if (res.success && res.data) {
+			incidents.value = [...incidents.value, ...res.data];
+			nextCursor.value = res.meta?.nextCursor ?? null;
+		}
+	} catch {
+		error.value = "Failed to load more incidents";
+	} finally {
+		loadingMore.value = false;
 	}
 };
 
@@ -160,6 +185,13 @@ const formatDuration = (incident: Incident) => {
 					<span class="col-arrow">→</span>
 				</div>
 			</template>
+		</div>
+
+		<!-- Load more -->
+		<div v-if="nextCursor && !loading" class="load-more">
+			<button class="btn-load-more" :disabled="loadingMore" @click="fetchMore">
+				{{ loadingMore ? "読み込み中..." : "もっと読む" }}
+			</button>
 		</div>
 
 		<!-- Results count -->
@@ -355,6 +387,37 @@ const formatDuration = (incident: Incident) => {
 
 .state-message.empty {
 	color: var(--text-secondary);
+}
+
+/* Load more */
+.load-more {
+	display: flex;
+	justify-content: center;
+	padding: var(--space-md) 0;
+}
+
+.btn-load-more {
+	font-family: var(--font-mono);
+	font-size: 0.8rem;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	color: var(--text-secondary);
+	background: transparent;
+	border: 1px solid var(--border-default);
+	padding: 8px 24px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.btn-load-more:hover:not(:disabled) {
+	color: var(--accent);
+	border-color: var(--accent);
+}
+
+.btn-load-more:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 
 /* Results count */

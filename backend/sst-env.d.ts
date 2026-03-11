@@ -10,17 +10,13 @@ declare module "sst" {
       "type": "sst.aws.ApiGatewayV2"
       "url": string
     }
-    "IncidentTable": {
+    "AppTable": {
       "name": string
       "type": "sst.aws.Dynamo"
     }
     "OriginVerifyToken": {
       "type": "sst.sst.Secret"
       "value": string
-    }
-    "RunbookTable": {
-      "name": string
-      "type": "sst.aws.Dynamo"
     }
     "Site": {
       "type": "sst.aws.StaticSite"

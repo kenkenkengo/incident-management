@@ -33,18 +33,27 @@ const id = route.params.id as string;
 onMounted(async () => {
 	try {
 		if (!authStore.accessToken) return;
-		const [incidentRes, messagesRes] = await Promise.all([
-			getIncident(authStore.accessToken, id),
-			getIncidentMessages(authStore.accessToken, id),
-		]);
+		const incidentRes = await getIncident(authStore.accessToken, id);
 		if (incidentRes.success && incidentRes.data) {
 			incident.value = incidentRes.data;
 		} else {
 			error.value = incidentRes.error ?? "Incident not found";
 		}
-		if (messagesRes.success && messagesRes.data) {
-			messages.value = messagesRes.data;
-		}
+
+		// メッセージを全件取得（ページネーションループ）
+		const allMessages: IncidentMessage[] = [];
+		let cursor: string | undefined;
+		do {
+			const res = await getIncidentMessages(authStore.accessToken, id, {
+				limit: 100,
+				cursor,
+			});
+			if (res.success && res.data) {
+				allMessages.push(...res.data);
+			}
+			cursor = res.meta?.nextCursor ?? undefined;
+		} while (cursor);
+		messages.value = allMessages;
 
 		const pmRes = await getPostmortem(authStore.accessToken, id);
 		if (pmRes.success && pmRes.data) {

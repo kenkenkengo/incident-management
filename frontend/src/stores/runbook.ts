@@ -14,7 +14,9 @@ export const useRunbookStore = defineStore("runbook", () => {
 	const runbooks = ref<Runbook[]>([]);
 	const currentRunbook = ref<Runbook | null>(null);
 	const isLoading = ref(false);
+	const isLoadingMore = ref(false);
 	const error = ref<string | null>(null);
+	const nextCursor = ref<string | null>(null);
 
 	const callWithAuth = async <T>(
 		fn: (
@@ -43,17 +45,42 @@ export const useRunbookStore = defineStore("runbook", () => {
 	const fetchAll = async (tags?: string[]) => {
 		isLoading.value = true;
 		error.value = null;
+		nextCursor.value = null;
 		try {
-			const res = await callWithAuth((token) => listRunbooks(token, tags));
+			const authStore = useAuthStore();
+			if (!authStore.accessToken) throw new Error("Not authenticated");
+			const res = await listRunbooks(authStore.accessToken, { tags });
 			if (!res.success) {
 				throw new Error(res.error ?? "Failed to fetch runbooks");
-			} else {
-				runbooks.value = res.data || [];
 			}
+			runbooks.value = res.data || [];
+			nextCursor.value = res.meta?.nextCursor ?? null;
 		} catch (e) {
 			error.value = e instanceof Error ? e.message : "Failed to fetch runbooks";
 		} finally {
 			isLoading.value = false;
+		}
+	};
+
+	const fetchMore = async (tags?: string[]) => {
+		if (!nextCursor.value) return;
+		isLoadingMore.value = true;
+		try {
+			const authStore = useAuthStore();
+			if (!authStore.accessToken) throw new Error("Not authenticated");
+			const res = await listRunbooks(authStore.accessToken, {
+				tags,
+				cursor: nextCursor.value,
+			});
+			if (!res.success) {
+				throw new Error(res.error ?? "Failed to fetch runbooks");
+			}
+			runbooks.value = [...runbooks.value, ...(res.data || [])];
+			nextCursor.value = res.meta?.nextCursor ?? null;
+		} catch (e) {
+			error.value = e instanceof Error ? e.message : "Failed to fetch runbooks";
+		} finally {
+			isLoadingMore.value = false;
 		}
 	};
 
@@ -65,9 +92,8 @@ export const useRunbookStore = defineStore("runbook", () => {
 			const res = await callWithAuth((token) => getRunbook(token, id));
 			if (!res.success) {
 				throw new Error(res.error ?? "Failed to fetch runbook");
-			} else {
-				currentRunbook.value = res.data || null;
 			}
+			currentRunbook.value = res.data || null;
 		} catch (e) {
 			error.value = e instanceof Error ? e.message : "Failed to fetch runbook";
 		} finally {
@@ -144,8 +170,11 @@ export const useRunbookStore = defineStore("runbook", () => {
 		runbooks,
 		currentRunbook,
 		isLoading,
+		isLoadingMore,
 		error,
+		nextCursor,
 		fetchAll,
+		fetchMore,
 		fetchOne,
 		create,
 		edit,
