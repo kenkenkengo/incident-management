@@ -205,6 +205,10 @@ const addRoutes = (
 ) => {
 	const defaultLink = [userPool, client, site, runbookTable, incidentTable];
 
+	const authOption = $dev ? {} : { auth: { lambda: originAuthorizer.id } };
+
+	// Slack イベントは API Gateway を直接叩く（CloudFront 非経由）
+	// 認証は AwsLambdaReceiver の Slack 署名検証（signingSecret）で保護される
 	api.route("POST /slack/events", {
 		handler: "src/slack/slack.handler.handler",
 		link: [
@@ -213,47 +217,27 @@ const addRoutes = (
 			slackSecrets.botToken,
 			slackSecrets.signingSecret,
 		],
-	}, {
-		auth: {
-			lambda: originAuthorizer.id
-		}
 	});
 
-	api.route("POST /auth/signin", {
+	api.route("POST /api/auth/signin", {
 		handler: "src/index.handler",
 		link: defaultLink,
-	}, {
-		auth: {
-			lambda: originAuthorizer.id,
-		},
-	});
+	}, authOption);
 
-	api.route("POST /auth/refresh", {
+	api.route("POST /api/auth/refresh", {
 		handler: "src/index.handler",
 		link: defaultLink,
-	}, {
-		auth: {
-			lambda: originAuthorizer.id,
-		},
-	});
+	}, authOption);
 
-	api.route("GET /", {
+	api.route("GET /api", {
 		handler: "src/index.handler",
 		link: defaultLink,
-	}, {
-		auth: {
-			lambda: originAuthorizer.id,
-		},
-	});
+	}, authOption);
 
-	api.route("OPTIONS /{proxy+}", {
+	api.route("OPTIONS /api/{proxy+}", {
 		handler: "src/index.handler",
 		link: defaultLink,
-	}, {
-		auth: {
-			lambda: originAuthorizer.id,
-		}
-	});
+	}, authOption);
 
 	api.route(
 		"$default",

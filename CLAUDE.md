@@ -1,3 +1,6 @@
+# 大事なルール
+こちらから指示があるまで実装、修正は行わず、提案に留めること。
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
