@@ -3,10 +3,11 @@ import { handle } from "hono/aws-lambda";
 import { cors } from "hono/cors";
 import { Resource } from "sst";
 import { authRoutes } from "./auth/auth.routes";
+import { incidentRoutes } from "./incident/incident.routes";
 import { errorHandler } from "./middleware/error-handler.middleware";
 import { runbookRoutes } from "./runbook/runbook.routes";
 
-const app = new Hono();
+const app = new Hono().basePath("/api");
 
 const allowedOrigin = Resource.Site.url.replace(/\/$/, "");
 app.use(
@@ -17,7 +18,7 @@ app.use(
 		allowHeaders: ["Content-Type", "Authorization"],
 		maxAge: 86400,
 	}),
-)
+);
 
 app.onError(errorHandler);
 
@@ -32,8 +33,9 @@ app.get("/", (c) => {
 
 app.route("/auth", authRoutes);
 app.route("/runbooks", runbookRoutes);
+app.route("/incidents", incidentRoutes);
 
-app.get("/api/me", (c) => {
+app.get("/me", (c) => {
 	const event = c.env as {
 		requestContext: { authorizer: { jwt: { claims: Record<string, any> } } };
 	};

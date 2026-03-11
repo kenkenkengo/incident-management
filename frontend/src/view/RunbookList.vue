@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useRunbookStore } from "@/stores/runbook";
+import TagInput from "@/components/TagInput.vue";
 import { listTags } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth";
-import TagInput from "@/components/TagInput.vue";
+import { useRunbookStore } from "@/stores/runbook";
 
 const store = useRunbookStore();
 const authStore = useAuthStore();

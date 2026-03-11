@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useRouter, useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 
 const authStore = useAuthStore();
@@ -41,6 +41,14 @@ const handleSignOut = () => {
         >
           <span class="nav-icon">≡</span>
           Runbooks
+        </router-link>
+        <router-link
+          to="/incidents"
+          class="nav-item"
+          :class="{ active: route.name?.toString().startsWith('incident') }"
+        >
+          <span class="nav-icon">⚡</span>
+          Incidents
         </router-link>
       </nav>
 

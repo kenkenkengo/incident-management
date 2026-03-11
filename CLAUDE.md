@@ -1,3 +1,6 @@
+# 大事なルール
+こちらから指示があるまで実装、修正は行わず、提案に留めること。
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -11,10 +14,11 @@ Generosity Incident Management — a monorepo with separate `backend/` and `fron
 ### Backend (`backend/`)
 
 - **Infrastructure**: SST v4 (Ion) deploying to AWS — config in `sst.config.ts`
-- **Database**: DynamoDB（`RunbookTable`）— ランブック管理に使用
+- **Database**: DynamoDB（`RunbookTable`, `IncidentTable`）— ランブック・インシデント管理に使用
 - **Runtime**: Hono web framework on AWS Lambda via API Gateway V2 (`src/index.ts`)
 - **Auth**: AWS Cognito UserPool with email-based usernames, SRP + password auth flows
-- **AWS SDKs**: Cognito Identity Provider, S3, S3 presigner
+- **AWS SDKs**: Cognito Identity Provider, S3, S3 presigner, Bedrock Runtime
+- **Slack Bot**: @slack/bolt on separate Lambda — `/incident` slash command + message event recording
 - **Validation**: Zod v4
 - **Build**: esbuild bundling to `dist/index.js` (target: node20)
 - **SST resources** are linked to the Lambda function (UserPool, client) and accessed via `sst` module's `Resource`
@@ -49,6 +53,13 @@ Generosity Incident Management — a monorepo with separate `backend/` and `fron
 - `backend/src/runbook/runbook.repository.ts` — DynamoDB アクセス層
 - `backend/src/runbook/runbook.types.ts` — ランブック型定義
 - `backend/src/runbook/runbook.validators.ts` — Zod バリデーションスキーマ（runbook）
+- `backend/src/incident/incident.types.ts` — インシデント型定義（Incident, IncidentMessage, Postmortem）
+- `backend/src/incident/incident.repository.ts` — IncidentTable DynamoDB アクセス層（単一テーブル設計: METADATA/MSG#/POSTMORTEM）
+- `backend/src/incident/incident.routes.ts` — インシデント REST API エンドポイント
+- `backend/src/incident/incident.commands.ts` — Slack `/incident` コマンドハンドラー
+- `backend/src/incident/postmortem.service.ts` — AWS Bedrock によるポストモーテム自動生成
+- `backend/src/slack/slack.handler.ts` — Slack Bolt Lambda ハンドラー
+- `backend/src/slack/message.events.ts` — Slack メッセージイベント記録
 
 ### Frontend
 - `frontend/src/main.ts` — Vue app ブートストラップ
@@ -64,6 +75,8 @@ Generosity Incident Management — a monorepo with separate `backend/` and `fron
 - `frontend/src/view/RunbookDetail.vue` — ランブック詳細ページ（Markdown レンダリング）
 - `frontend/src/view/RunbookForm.vue` — ランブック作成/編集フォーム
 - `frontend/src/components/TagInput.vue` — タグ入力コンポーネント（予測変換付き）
+- `frontend/src/view/IncidentList.vue` — インシデント一覧ページ（active/closed フィルタ）
+- `frontend/src/view/IncidentDetail.vue` — インシデント詳細ページ（メッセージタイムライン + ポストモーテム生成/表示）
 
 ## API Routes
 
@@ -80,6 +93,13 @@ Generosity Incident Management — a monorepo with separate `backend/` and `fron
 | GET | `/runbooks/:id` | JWT | ランブック詳細取得 |
 | PUT | `/runbooks/:id` | JWT | ランブック更新 |
 | DELETE | `/runbooks/:id` | JWT | ランブック削除 |
+| GET | `/incidents` | JWT | インシデント一覧（`?status=active\|closed` フィルタ可） |
+| GET | `/incidents/:id` | JWT | インシデント詳細取得 |
+| GET | `/incidents/:id/messages` | JWT | メッセージ一覧（時系列） |
+| POST | `/incidents/:id/postmortem` | JWT | ポストモーテム生成（Bedrock） |
+| GET | `/incidents/:id/postmortem` | JWT | 保存済みポストモーテム取得 |
+| POST | `/incidents/:id/generate-runbook` | JWT | ポストモーテムからランブック草案生成（Bedrock、保存はしない） |
+| POST | `/slack/events` | Slack署名 | Slack Bot イベント受信（コマンド + メッセージ） |
 
 ## Commands
 
@@ -146,3 +166,7 @@ cd frontend && npx vitest run src/__tests__/App.spec.ts
 - **Vite proxy パターン**: フロントエンドの API クライアントは `/api/auth/signin` のようなパスを使用し、`vite.config.ts` のプロキシ設定が `/api` を `VITE_API_URL` に転送してパスプレフィックスを除去する
 - **認証トークンは localStorage**: auth store が accessToken/refreshToken/email を localStorage に保存。ルーターの `beforeEach` ガードで認証チェックを実施
 - **Cognito エラーマッピング**: `auth.routes.ts` で Cognito 例外名をユーザー向けメッセージに変換している
+- **Slack Bot は別 Lambda**: `POST /slack/events` は独自の Lambda ハンドラー（`src/slack/slack.handler.ts`）で処理。JWT 認証なし、Slack 署名検証で保護
+- **IncidentTable は単一テーブル設計**: PK=`INCIDENT#<id>`, SK=`METADATA`/`MSG#<ts>`/`POSTMORTEM` の3パターン
+- **Bedrock モデル**: `openai.gpt-oss-safeguard-120b` を使用。Bedrock コンソールでモデルアクセスの事前有効化が必要
+- **SST Secret**: Slack Bot Token/Signing Secret は `npx sst secret set SlackBotToken xoxb-...` で設定

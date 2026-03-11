@@ -11,11 +11,15 @@ const router = useRouter();
 authStore.loadFromStorage();
 const userEmail = authStore.userEmail;
 
-const currentTime = ref(new Date().toLocaleTimeString("ja-JP", { hour12: false }));
+const currentTime = ref(
+	new Date().toLocaleTimeString("ja-JP", { hour12: false }),
+);
 
 onMounted(async () => {
 	setInterval(() => {
-		currentTime.value = new Date().toLocaleTimeString("ja-JP", { hour12: false });
+		currentTime.value = new Date().toLocaleTimeString("ja-JP", {
+			hour12: false,
+		});
 	}, 1000);
 	await runbookStore.fetchAll();
 });

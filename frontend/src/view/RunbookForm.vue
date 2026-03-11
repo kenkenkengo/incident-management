@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { MdEditor } from "md-editor-v3";
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useRunbookStore } from "@/stores/runbook";
+import TagInput from "@/components/TagInput.vue";
 import { listTags } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth";
-import TagInput from "@/components/TagInput.vue";
-import { MdEditor } from "md-editor-v3";
+import { useRunbookStore } from "@/stores/runbook";
 import "md-editor-v3/lib/style.css";
 
 const route = useRoute();
@@ -16,10 +16,12 @@ const tagSuggestions = ref<string[]>([]);
 
 const id = route.params.id as string | undefined;
 const isEdit = computed(() => !!id);
+const fromIncident = computed(() => route.query.fromIncident as string | undefined);
 
 const title = ref("");
 const content = ref("");
 const tagsInput = ref("");
+const isDraft = ref(false);
 
 onMounted(async () => {
 	if (authStore.accessToken) {
@@ -32,6 +34,20 @@ onMounted(async () => {
 			// タグ取得エラーは無視
 		}
 	}
+
+	const draftState = history.state?.draft;
+	if (!isEdit.value && draftState) {
+		try {
+			const draft = JSON.parse(draftState);
+			title.value = draft.title ?? "";
+			content.value = draft.content ?? "";
+			tagsInput.value = (draft.tags ?? []).join(", ");
+			isDraft.value = true;
+		} catch {
+			// draft パース失敗は無視
+		}
+	}
+
 	if (isEdit.value && id) {
 		try {
 			await store.fetchOne(id);
@@ -93,8 +109,9 @@ const handleSubmit = async () => {
     <!-- Page header -->
     <div class="page-header">
       <div>
-        <div class="page-eyebrow">{{ isEdit ? 'EDIT PROCEDURE' : 'NEW PROCEDURE' }}</div>
-        <h1 class="page-title">{{ isEdit ? 'Runbookを編集' : 'Runbookを作成' }}</h1>
+        <div class="page-eyebrow">{{ isEdit ? 'EDIT PROCEDURE' : isDraft ? 'AI GENERATED DRAFT' : 'NEW PROCEDURE' }}</div>
+        <h1 class="page-title">{{ isEdit ? 'Runbookを編集' : isDraft ? 'Runbook ドラフト' : 'Runbookを作成' }}</h1>
+        <p v-if="isDraft" class="draft-hint">AI が生成した内容です。確認・編集してから保存してください。</p>
       </div>
     </div>
 
@@ -222,6 +239,17 @@ const handleSubmit = async () => {
   letter-spacing: 0.12em;
   color: var(--accent);
   margin-bottom: 4px;
+}
+
+.draft-hint {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: var(--space-xs);
+  padding: 6px 10px;
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-dim);
+  border-radius: 3px;
 }
 
 /* Error */

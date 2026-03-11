@@ -10,6 +10,14 @@ declare module "sst" {
       "type": "sst.aws.ApiGatewayV2"
       "url": string
     }
+    "IncidentTable": {
+      "name": string
+      "type": "sst.aws.Dynamo"
+    }
+    "OriginVerifyToken": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
     "RunbookTable": {
       "name": string
       "type": "sst.aws.Dynamo"
@@ -17,6 +25,18 @@ declare module "sst" {
     "Site": {
       "type": "sst.aws.StaticSite"
       "url": string
+    }
+    "SlackBotToken": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "SlackSigningSecret": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "TokenRotation": {
+      "name": string
+      "type": "sst.aws.Function"
     }
     "UserPool": {
       "id": string
