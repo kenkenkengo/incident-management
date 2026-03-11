@@ -1,9 +1,15 @@
 import { Hono } from "hono";
-import { errorResponse, successResponse } from "../lib/api-response";
+import {
+	errorResponse,
+	paginatedResponse,
+	successResponse,
+} from "../lib/api-response";
+import { parsePaginationParams } from "../lib/pagination";
 import {
 	findById,
 	getPostmortem,
 	listAll,
+	listAllMessages,
 	listMessages,
 	savePostmortem,
 } from "./incident.repository";
@@ -18,8 +24,9 @@ export const incidentRoutes = new Hono();
 incidentRoutes.get("/", async (c) => {
 	try {
 		const status = c.req.query("status") as "active" | "closed" | undefined;
-		const incidents = await listAll(status);
-		return successResponse(c, incidents);
+		const pagination = parsePaginationParams(c);
+		const result = await listAll(pagination, status);
+		return paginatedResponse(c, result, pagination.limit);
 	} catch (error) {
 		console.error("Error retrieving incident", error);
 		return errorResponse(c, "Failed to retrieve incident", 500);
@@ -43,8 +50,9 @@ incidentRoutes.get("/:id", async (c) => {
 incidentRoutes.get("/:id/messages", async (c) => {
 	try {
 		const id = c.req.param("id");
-		const messages = await listMessages(id);
-		return successResponse(c, messages);
+		const pagination = parsePaginationParams(c);
+		const result = await listMessages(id, pagination);
+		return paginatedResponse(c, result, pagination.limit);
 	} catch (error) {
 		console.error("Error retrieving messages", error);
 		return errorResponse(c, "Failed to retrieve messages", 500);
@@ -59,7 +67,7 @@ incidentRoutes.post("/:id/postmortem", async (c) => {
 			return errorResponse(c, "Incident not found", 404);
 		}
 
-		const messages = await listMessages(id);
+		const messages = await listAllMessages(id);
 		if (messages.length === 0) {
 			return errorResponse(c, "No messages to analyze", 400);
 		}
@@ -98,7 +106,9 @@ incidentRoutes.post("/:id/generate-runbook", async (c) => {
 	} catch (error) {
 		console.error("Error generating runbook draft", error);
 		const message =
-			error instanceof Error ? error.message : "Failed to generate runbook draft";
+			error instanceof Error
+				? error.message
+				: "Failed to generate runbook draft";
 		return errorResponse(c, message, 500);
 	}
 });

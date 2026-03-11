@@ -1,14 +1,16 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
-	DeleteCommand,
-	DynamoDBDocumentClient,
 	GetCommand,
 	PutCommand,
 	QueryCommand,
-	ScanCommand,
 	UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { Resource } from "sst";
+import { client, TABLE_NAME } from "../lib/dynamodb.client";
+import {
+	decodeCursor,
+	encodeCursor,
+	type PaginatedResult,
+	type PaginationParams,
+} from "../lib/pagination";
 import type {
 	CreateIncidentRequest,
 	Incident,
@@ -16,10 +18,11 @@ import type {
 	Postmortem,
 } from "./incident.types";
 
-const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const TABLE_NAME = Resource.IncidentTable.name;
+const incidentKey = (id: string) => ({
+	pk: `INCIDENT#${id}`,
+	sk: "META",
+});
 
-const incidentKey = (id: string) => ({ pk: `INCIDENT#${id}`, sk: `METADATA` });
 const messageKey = (incidentId: string, messageTs: string) => ({
 	pk: `INCIDENT#${incidentId}`,
 	sk: `MSG#${messageTs}`,
@@ -30,18 +33,38 @@ const postmortemKey = (incidentId: string) => ({
 	sk: "POSTMORTEM",
 });
 
+const toIncident = (item: Record<string, unknown>): Incident => ({
+	id: item.id as string,
+	channelId: item.channelId as string,
+	title: item.title as string,
+	status: item.status as "active" | "closed",
+	startedAt: item.startedAt as string,
+	endedAt: item.endedAt as string | undefined,
+	startedBy: item.startedBy as string,
+});
+
+const toMessage = (item: Record<string, unknown>): IncidentMessage => ({
+	incidentId: item.incidentId as string,
+	messageTs: item.messageTs as string,
+	userId: item.userId as string,
+	userName: item.userName as string,
+	text: item.text as string,
+	recordedAt: item.recordedAt as string,
+});
+
 export const create = async (
 	data: CreateIncidentRequest,
 	channelId: string,
 	startedBy: string,
 ): Promise<Incident> => {
 	const id = crypto.randomUUID();
+	const startedAt = new Date().toISOString();
 	const incident: Incident = {
 		id,
 		channelId,
 		title: data.title,
 		status: "active",
-		startedAt: new Date().toISOString(),
+		startedAt,
 		startedBy,
 	};
 	await client.send(
@@ -50,6 +73,10 @@ export const create = async (
 			Item: {
 				...incidentKey(id),
 				...incident,
+				GSI1PK: "INCIDENT",
+				GSI1SK: startedAt,
+				GSI2PK: channelId,
+				GSI2SK: "active",
 			},
 		}),
 	);
@@ -63,28 +90,25 @@ export const findById = async (id: string): Promise<Incident | null> => {
 			Key: incidentKey(id),
 		}),
 	);
-	return (result.Item as Incident) ?? null;
+	return result.Item ? toIncident(result.Item) : null;
 };
 
 export const findActiveByChannel = async (
 	channelId: string,
 ): Promise<Incident | null> => {
 	const result = await client.send(
-		new ScanCommand({
+		new QueryCommand({
 			TableName: TABLE_NAME,
-			FilterExpression:
-				"sk = :sk AND channelId = :channelId AND #status = :activeStatus",
-			ExpressionAttributeNames: {
-				"#status": "status",
-			},
+			IndexName: "GSI2",
+			KeyConditionExpression: "GSI2PK = :channelId AND GSI2SK = :active",
 			ExpressionAttributeValues: {
-				":sk": "METADATA",
 				":channelId": channelId,
-				":activeStatus": "active",
+				":active": "active",
 			},
+			Limit: 1,
 		}),
 	);
-	return (result.Items?.[0] as Incident) ?? null;
+	return result.Items?.[0] ? toIncident(result.Items[0]) : null;
 };
 
 export const close = async (id: string): Promise<Incident | null> => {
@@ -93,7 +117,8 @@ export const close = async (id: string): Promise<Incident | null> => {
 			new UpdateCommand({
 				TableName: TABLE_NAME,
 				Key: incidentKey(id),
-				UpdateExpression: "SET #status = :closedStatus, endedAt = :endedAt",
+				UpdateExpression:
+					"SET #status = :closedStatus, endedAt = :endedAt, GSI2SK = :closedStatus",
 				ExpressionAttributeNames: {
 					"#status": "status",
 				},
@@ -101,9 +126,10 @@ export const close = async (id: string): Promise<Incident | null> => {
 					":closedStatus": "closed",
 					":endedAt": new Date().toISOString(),
 				},
+				ReturnValues: "ALL_NEW",
 			}),
 		);
-		return (result.Attributes as Incident) ?? null;
+		return result.Attributes ? toIncident(result.Attributes) : null;
 	} catch (error) {
 		if (
 			error instanceof Error &&
@@ -116,29 +142,54 @@ export const close = async (id: string): Promise<Incident | null> => {
 };
 
 export const listAll = async (
+	pagination: PaginationParams,
 	status?: "active" | "closed",
-): Promise<Incident[]> => {
-	const baseFilter = "sk = :sk";
-	const baseValues: Record<string, string> = { ":sk": "METADATA" };
+): Promise<PaginatedResult<Incident>> => {
+	const expressionValues: Record<string, string> = {
+		":type": "INCIDENT",
+	};
+	const expressionNames: Record<string, string> = {};
+	let filterExpression: string | undefined;
+
+	if (status) {
+		filterExpression = "#status = :status";
+		expressionNames["#status"] = "status";
+		expressionValues[":status"] = status;
+	}
 
 	const result = await client.send(
-		new ScanCommand({
+		new QueryCommand({
 			TableName: TABLE_NAME,
-			FilterExpression: status
-				? `${baseFilter} AND #status = :status`
-				: baseFilter,
-			ExpressionAttributeNames: status ? { "#status": "status" } : undefined,
-			ExpressionAttributeValues: status
-				? { ...baseValues, ":status": status }
-				: baseValues,
+			IndexName: "GSI1",
+			KeyConditionExpression: "GSI1PK = :type",
+			FilterExpression: filterExpression,
+			ExpressionAttributeValues: expressionValues,
+			ExpressionAttributeNames:
+				Object.keys(expressionNames).length > 0 ? expressionNames : undefined,
+			Limit: pagination.limit,
+			ExclusiveStartKey: pagination.cursor
+				? decodeCursor(pagination.cursor)
+				: undefined,
+			ScanIndexForward: false,
 		}),
 	);
-	return (result.Items as Incident[]) ?? [];
+
+	return {
+		items: (result.Items ?? []).map(toIncident),
+		nextCursor: result.LastEvaluatedKey
+			? encodeCursor(result.LastEvaluatedKey)
+			: null,
+	};
 };
 
 export const addMessage = async (
 	incidentId: string,
-	data: { userId: string; userName: string; text: string; messageTs: string },
+	data: {
+		readonly userId: string;
+		readonly userName: string;
+		readonly text: string;
+		readonly messageTs: string;
+	},
 ): Promise<IncidentMessage> => {
 	const message: IncidentMessage = {
 		incidentId,
@@ -159,7 +210,8 @@ export const addMessage = async (
 
 export const listMessages = async (
 	incidentId: string,
-): Promise<IncidentMessage[]> => {
+	pagination: PaginationParams,
+): Promise<PaginatedResult<IncidentMessage>> => {
 	const result = await client.send(
 		new QueryCommand({
 			TableName: TABLE_NAME,
@@ -168,10 +220,47 @@ export const listMessages = async (
 				":pk": `INCIDENT#${incidentId}`,
 				":skPrefix": "MSG#",
 			},
+			Limit: pagination.limit,
+			ExclusiveStartKey: pagination.cursor
+				? decodeCursor(pagination.cursor)
+				: undefined,
 			ScanIndexForward: true,
 		}),
 	);
-	return (result.Items as IncidentMessage[]) ?? [];
+
+	return {
+		items: (result.Items ?? []).map(toMessage),
+		nextCursor: result.LastEvaluatedKey
+			? encodeCursor(result.LastEvaluatedKey)
+			: null,
+	};
+};
+
+export const listAllMessages = async (
+	incidentId: string,
+): Promise<readonly IncidentMessage[]> => {
+	const allMessages: IncidentMessage[] = [];
+	let exclusiveStartKey: Record<string, unknown> | undefined;
+
+	do {
+		const result = await client.send(
+			new QueryCommand({
+				TableName: TABLE_NAME,
+				KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
+				ExpressionAttributeValues: {
+					":pk": `INCIDENT#${incidentId}`,
+					":skPrefix": "MSG#",
+				},
+				ExclusiveStartKey: exclusiveStartKey,
+				ScanIndexForward: true,
+			}),
+		);
+
+		allMessages.push(...(result.Items ?? []).map(toMessage));
+		exclusiveStartKey = result.LastEvaluatedKey;
+	} while (exclusiveStartKey);
+
+	return allMessages;
 };
 
 export const savePostmortem = async (

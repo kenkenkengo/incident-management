@@ -1,5 +1,10 @@
 import { Hono } from "hono";
-import { errorResponse, successResponse } from "../lib/api-response";
+import {
+	errorResponse,
+	paginatedResponse,
+	successResponse,
+} from "../lib/api-response";
+import { parsePaginationParams } from "../lib/pagination";
 import {
 	create,
 	findById,
@@ -34,8 +39,9 @@ runbookRoutes.get("/", async (c) => {
 					.map((t) => t.trim())
 					.filter(Boolean)
 			: undefined;
-		const runbooks = await listAll(tags);
-		return successResponse(c, runbooks);
+		const pagination = parsePaginationParams(c);
+		const result = await listAll(pagination, tags);
+		return paginatedResponse(c, result, pagination.limit);
 	} catch (error) {
 		console.error("Error listing runbooks", error);
 		return errorResponse(c, "Failed to list runbooks", 500);

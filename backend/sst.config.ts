@@ -5,7 +5,7 @@ import type { CognitoUserPoolClient } from "./.sst/platform/src/components/aws/c
 const createRotationSecret = (token: sst.Secret) => {
 	const secret = new aws.secretsmanager.Secret("RotationSecret", {
 		name: $interpolate`${$app.name}-${$app.stage}-origin-verify-token`,
-	})
+	});
 
 	// 初期値は sst.Secret と同じ値を設定
 	new aws.secretsmanager.SecretVersion("RotationSecretVersion", {
@@ -17,7 +17,7 @@ const createRotationSecret = (token: sst.Secret) => {
 	});
 
 	return secret;
-}
+};
 
 const createUserPool = () => {
 	const userPool = new sst.aws.CognitoUserPool("UserPool", {
@@ -61,11 +61,11 @@ const createApi = (
 					{
 						actions: ["secretsmanager:GetSecretValue"],
 						resources: [secret.arn],
-					}
-				]
-			}
-		}
-	})
+					},
+				],
+			},
+		},
+	});
 
 	const cognitoAuthorizer = api.addAuthorizer({
 		name: "CognitoAuthorizer",
@@ -78,7 +78,10 @@ const createApi = (
 	return { api, cognitoAuthorizer, originAuthorizer };
 };
 
-const createTokenRotation = (secret: aws.secretsmanager.Secret, siteDistributionId: $util.Output<string>) => {
+const createTokenRotation = (
+	secret: aws.secretsmanager.Secret,
+	siteDistributionId: $util.Output<string>,
+) => {
 	const rotationFn = new sst.aws.Function("TokenRotation", {
 		handler: "src/rotation.handler",
 		runtime: "nodejs22.x",
@@ -88,31 +91,40 @@ const createTokenRotation = (secret: aws.secretsmanager.Secret, siteDistribution
 		},
 		permissions: [
 			{
-				actions: ["secretsmanager:GetSecretValue", "secretsmanager:PutSecretValue"],
+				actions: [
+					"secretsmanager:GetSecretValue",
+					"secretsmanager:PutSecretValue",
+				],
 				resources: [secret.arn],
 			},
 			{
-				actions: ["cloudfront:GetDistribution", "cloudfront:UpdateDistribution", "cloudfront:CreateInvalidation"],
-				resources: [$interpolate`arn:aws:cloudfront::${aws.getCallerIdentityOutput().accountId}:distribution/${siteDistributionId}`],
-			}
-		]
-	})
+				actions: [
+					"cloudfront:GetDistribution",
+					"cloudfront:UpdateDistribution",
+					"cloudfront:CreateInvalidation",
+				],
+				resources: [
+					$interpolate`arn:aws:cloudfront::${aws.getCallerIdentityOutput().accountId}:distribution/${siteDistributionId}`,
+				],
+			},
+		],
+	});
 
 	const rule = new aws.cloudwatch.EventRule("TokenRotationSchedule", {
 		scheduleExpression: "rate(1 day)",
-	})
+	});
 
 	new aws.cloudwatch.EventTarget("TokenRotationTarget", {
 		rule: rule.name,
 		arn: rotationFn.arn,
-	})
+	});
 
 	new aws.lambda.Permission("TokenRotationPermission", {
 		action: "lambda:InvokeFunction",
 		function: rotationFn.name,
 		principal: "events.amazonaws.com",
-	})
-}
+	});
+};
 
 const createSite = (api: sst.aws.ApiGatewayV2, secret: sst.Secret) => {
 	const site = new sst.aws.StaticSite("Site", {
@@ -133,55 +145,65 @@ const createSite = (api: sst.aws.ApiGatewayV2, secret: sst.Secret) => {
 							originProtocolPolicy: "https-only",
 							originSslProtocols: ["TLSv1.2"],
 						},
-						customHeaders: [{
-							name: "x-origin-verify",
-							value: secret.value,
-						}]
-					}
-				])
+						customHeaders: [
+							{
+								name: "x-origin-verify",
+								value: secret.value,
+							},
+						],
+					},
+				]);
 
 				args.orderedCacheBehaviors = [
 					{
 						pathPattern: "/api/*",
 						targetOriginId: "apiOrigin",
 						viewerProtocolPolicy: "redirect-to-https",
-						allowedMethods: ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"],
+						allowedMethods: [
+							"GET",
+							"HEAD",
+							"OPTIONS",
+							"PUT",
+							"POST",
+							"PATCH",
+							"DELETE",
+						],
 						cachedMethods: ["GET", "HEAD"],
 						// CachingDisabled
 						cachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
 						// AllViewerExceptHostHeader
 						originRequestPolicyId: "b689b0a8-53d0-40ab-baf2-68738e2966ac",
-					}
-				]
+					},
+				];
 
 				args.transform = {
 					...args.transform,
-					distribution: (_distArgs, opts) => { // ローテーションでCloudFrontのDistributionConfigを更新するため、sstの管理外にする
+					distribution: (_distArgs, opts) => {
+						// ローテーションでCloudFrontのDistributionConfigを更新するため、sstの管理外にする
 						opts.ignoreChanges = ["origins"];
-					}
-				}
-			}
-		}
-	})
-	return site
-};
-
-const createRunbookTable = () => {
-	return new sst.aws.Dynamo("RunbookTable", {
-		fields: {
-			id: "string",
+					},
+				};
+			},
 		},
-		primaryIndex: { hashKey: "id" },
 	});
+	return site;
 };
 
-const createIncidentTable = () => {
-	return new sst.aws.Dynamo("IncidentTable", {
+const createAppTable = () => {
+	return new sst.aws.Dynamo("AppTable", {
 		fields: {
 			pk: "string",
 			sk: "string",
+			GSI1PK: "string",
+			GSI1SK: "string",
+			GSI2PK: "string",
+			GSI2SK: "string",
 		},
 		primaryIndex: { hashKey: "pk", rangeKey: "sk" },
+		globalIndexes: {
+			GSI1: { hashKey: "GSI1PK", rangeKey: "GSI1SK" },
+			GSI2: { hashKey: "GSI2PK", rangeKey: "GSI2SK" },
+		},
 	});
 };
 
@@ -199,11 +221,10 @@ const addRoutes = (
 	userPool: sst.aws.CognitoUserPool,
 	client: CognitoUserPoolClient,
 	site: sst.aws.StaticSite,
-	runbookTable: sst.aws.Dynamo,
-	incidentTable: sst.aws.Dynamo,
+	appTable: sst.aws.Dynamo,
 	slackSecrets: { botToken: sst.Secret; signingSecret: sst.Secret },
 ) => {
-	const defaultLink = [userPool, client, site, runbookTable, incidentTable];
+	const defaultLink = [userPool, client, site, appTable];
 
 	const authOption = $dev ? {} : { auth: { lambda: originAuthorizer.id } };
 
@@ -211,33 +232,44 @@ const addRoutes = (
 	// 認証は AwsLambdaReceiver の Slack 署名検証（signingSecret）で保護される
 	api.route("POST /slack/events", {
 		handler: "src/slack/slack.handler.handler",
-		link: [
-			incidentTable,
-			runbookTable,
-			slackSecrets.botToken,
-			slackSecrets.signingSecret,
-		],
+		link: [appTable, slackSecrets.botToken, slackSecrets.signingSecret],
 	});
 
-	api.route("POST /api/auth/signin", {
-		handler: "src/index.handler",
-		link: defaultLink,
-	}, authOption);
+	api.route(
+		"POST /api/auth/signin",
+		{
+			handler: "src/index.handler",
+			link: defaultLink,
+		},
+		authOption,
+	);
 
-	api.route("POST /api/auth/refresh", {
-		handler: "src/index.handler",
-		link: defaultLink,
-	}, authOption);
+	api.route(
+		"POST /api/auth/refresh",
+		{
+			handler: "src/index.handler",
+			link: defaultLink,
+		},
+		authOption,
+	);
 
-	api.route("GET /api", {
-		handler: "src/index.handler",
-		link: defaultLink,
-	}, authOption);
+	api.route(
+		"GET /api",
+		{
+			handler: "src/index.handler",
+			link: defaultLink,
+		},
+		authOption,
+	);
 
-	api.route("OPTIONS /api/{proxy+}", {
-		handler: "src/index.handler",
-		link: defaultLink,
-	}, authOption);
+	api.route(
+		"OPTIONS /api/{proxy+}",
+		{
+			handler: "src/index.handler",
+			link: defaultLink,
+		},
+		authOption,
+	);
 
 	api.route(
 		"$default",
@@ -273,10 +305,13 @@ export default $config({
 		const originVerifyToken = new sst.Secret("OriginVerifyToken");
 		const { userPool, client } = createUserPool();
 		const rotationSecret = createRotationSecret(originVerifyToken);
-		const { api, cognitoAuthorizer, originAuthorizer } = createApi(userPool, client, rotationSecret);
+		const { api, cognitoAuthorizer, originAuthorizer } = createApi(
+			userPool,
+			client,
+			rotationSecret,
+		);
 		const site = createSite(api, originVerifyToken); // 初期シークレットは固定なので originVerifyToken を渡す
-		const runbookTable = createRunbookTable();
-		const incidentTable = createIncidentTable();
+		const appTable = createAppTable();
 		const slackSecrets = createSlackSecrets();
 		addRoutes(
 			api,
@@ -285,8 +320,7 @@ export default $config({
 			userPool,
 			client,
 			site,
-			runbookTable,
-			incidentTable,
+			appTable,
 			slackSecrets,
 		);
 		// ローテーション設定（本番・dev共通）

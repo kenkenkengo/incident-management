@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import type { PaginatedResult } from "./pagination";
 
 interface ApiResponse<T> {
 	readonly success: boolean;
@@ -13,6 +14,22 @@ export const successResponse = <T>(
 	status: ContentfulStatusCode = 200,
 ) => {
 	return c.json({ success: true, data } as ApiResponse<T>, status);
+};
+
+export const paginatedResponse = <T>(
+	c: Context,
+	result: PaginatedResult<T>,
+	limit: number,
+	status: ContentfulStatusCode = 200,
+) => {
+	return c.json(
+		{
+			success: true,
+			data: result.items,
+			meta: { limit, nextCursor: result.nextCursor },
+		},
+		status,
+	);
 };
 
 export const errorResponse = <T>(
