@@ -2,10 +2,13 @@ export interface Incident {
 	readonly id: string;
 	readonly channelId: string;
 	readonly title: string;
+	readonly severity: "SEV1" | "SEV2" | "SEV3";
+	readonly impact?: string;
 	readonly status: "active" | "closed";
 	readonly startedAt: string;
 	readonly endedAt?: string;
 	readonly startedBy: string;
+	readonly resolution?: string;
 }
 
 export interface IncidentMessage {
@@ -19,6 +22,8 @@ export interface IncidentMessage {
 
 export interface CreateIncidentRequest {
 	readonly title: string;
+	readonly severity: "SEV1" | "SEV2" | "SEV3";
+	readonly impact?: string;
 }
 
 export interface Postmortem {
@@ -26,4 +31,12 @@ export interface Postmortem {
 	readonly content: string;
 	readonly generatedAt: string;
 	readonly modelId: string;
+}
+
+export interface StatusUpdate {
+	readonly incidentId: string;
+	readonly status: "investigating" | "identified" | "responding" | "recovering";
+	readonly message?: string;
+	readonly updatedBy: string;
+	readonly updatedAt: string;
 }

@@ -16,6 +16,7 @@ import type {
 	Incident,
 	IncidentMessage,
 	Postmortem,
+	StatusUpdate,
 } from "./incident.types";
 
 const incidentKey = (id: string) => ({
@@ -37,6 +38,9 @@ const toIncident = (item: Record<string, unknown>): Incident => ({
 	id: item.id as string,
 	channelId: item.channelId as string,
 	title: item.title as string,
+	severity: (item.severity as "SEV1" | "SEV2" | "SEV3") ?? "SEV3",
+	impact: item.impact as string | undefined,
+	resolution: item.resolution as string | undefined,
 	status: item.status as "active" | "closed",
 	startedAt: item.startedAt as string,
 	endedAt: item.endedAt as string | undefined,
@@ -66,6 +70,8 @@ export const create = async (
 		status: "active",
 		startedAt,
 		startedBy,
+		severity: data.severity,
+		...(data.impact !== undefined && { impact: data.impact }),
 	};
 	await client.send(
 		new PutCommand({
@@ -111,20 +117,21 @@ export const findActiveByChannel = async (
 	return result.Items?.[0] ? toIncident(result.Items[0]) : null;
 };
 
-export const close = async (id: string): Promise<Incident | null> => {
+export const close = async (id: string, resolution: string): Promise<Incident | null> => {
 	try {
 		const result = await client.send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
 				Key: incidentKey(id),
 				UpdateExpression:
-					"SET #status = :closedStatus, endedAt = :endedAt, GSI2SK = :closedStatus",
+					"SET #status = :closedStatus, endedAt = :endedAt, resolution = :resolution, GSI2SK = :closedStatus",
 				ExpressionAttributeNames: {
 					"#status": "status",
 				},
 				ExpressionAttributeValues: {
 					":closedStatus": "closed",
 					":endedAt": new Date().toISOString(),
+					":resolution": resolution,
 				},
 				ReturnValues: "ALL_NEW",
 			}),
@@ -297,3 +304,47 @@ export const getPostmortem = async (
 	);
 	return (result.Item as Postmortem) ?? null;
 };
+
+const statusUpdateKey = (incidentId: string, updatedAt: string) => ({
+	pk: `INCIDENT#${incidentId}`,
+	sk: `STATUS#${updatedAt}`,
+});
+
+const toStatusUpdate = (item: Record<string, unknown>): StatusUpdate => ({
+	incidentId: item.incidentId as string,
+	status: item.status as StatusUpdate["status"],
+	message: item.message as string | undefined,
+	updatedBy: item.updatedBy as string,
+	updatedAt: item.updatedAt as string,
+})
+
+export const addStatusUpdate = async (data: StatusUpdate): Promise<StatusUpdate> => {
+	await client.send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...statusUpdateKey(data.incidentId, data.updatedAt),
+				...data,
+			},
+		}),
+	);
+	return data;
+}
+
+export const listStatusUpdates = async (
+	incidentId: string,
+): Promise<readonly StatusUpdate[]> => {
+	const result = await client.send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
+			ExpressionAttributeValues: {
+				":pk": `INCIDENT#${incidentId}`,
+				":skPrefix": "STATUS#",
+			},
+			ScanIndexForward: true,
+		}),
+	);
+
+	return (result.Items ?? []).map(toStatusUpdate);
+}
