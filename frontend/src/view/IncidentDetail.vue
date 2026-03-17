@@ -145,7 +145,8 @@ const handleGenerateRunbook = async () => {
 			<div class="loading-state">
 				<div class="skeleton" style="height: 32px; width: 60%; border-radius: 4px; margin-bottom: 16px;" />
 				<div class="skeleton" style="height: 20px; width: 30%; border-radius: 3px; margin-bottom: 32px;" />
-				<div v-for="i in 5" :key="i" class="skeleton" :style="`height: 16px; width: ${80 + (i % 3) * 10}%; border-radius: 3px; margin-bottom: 12px;`" />
+				<div v-for="i in 5" :key="i" class="skeleton"
+					:style="`height: 16px; width: ${80 + (i % 3) * 10}%; border-radius: 3px; margin-bottom: 12px;`" />
 			</div>
 		</template>
 
@@ -173,6 +174,12 @@ const handleGenerateRunbook = async () => {
 
 				<div class="meta-grid">
 					<div class="meta-item">
+						<span class="meta-label">重要度</span>
+						<span class="meta-value">
+							<span :class="['severity-badge', incident.severity.toLowerCase()]">{{ incident.severity }}</span>
+						</span>
+					</div>
+					<div class="meta-item">
 						<span class="meta-label">開始</span>
 						<span class="meta-value mono">{{ formatDate(incident.startedAt) }}</span>
 					</div>
@@ -188,6 +195,14 @@ const handleGenerateRunbook = async () => {
 						<span class="meta-label">メッセージ</span>
 						<span class="meta-value mono">{{ messages.length }}件</span>
 					</div>
+					<div v-if="incident.impact" class="meta-item meta-item-wide">
+						<span class="meta-label">影響範囲</span>
+						<span class="meta-value">{{ incident.impact }}</span>
+					</div>
+					<div v-if="incident.resolution" class="meta-item meta-item-wide">
+						<span class="meta-label">解決方法</span>
+						<span class="meta-value">{{ incident.resolution }}</span>
+					</div>
 				</div>
 			</div>
 
@@ -202,18 +217,10 @@ const handleGenerateRunbook = async () => {
 						生成日時: {{ formatDate(postmortem.generatedAt) }}
 					</span>
 					<div class="postmortem-actions">
-						<button
-							class="btn-runbook"
-							:disabled="generatingRunbook"
-							@click="handleGenerateRunbook"
-						>
+						<button class="btn-runbook" :disabled="generatingRunbook" @click="handleGenerateRunbook">
 							{{ generatingRunbook ? "生成中..." : "Runbookを生成" }}
 						</button>
-						<button
-							class="btn-regenerate"
-							:disabled="generatingPostmortem"
-							@click="handleGeneratePostmortem"
-						>
+						<button class="btn-regenerate" :disabled="generatingPostmortem" @click="handleGeneratePostmortem">
 							{{ generatingPostmortem ? "生成中..." : "再生成" }}
 						</button>
 					</div>
@@ -223,12 +230,8 @@ const handleGenerateRunbook = async () => {
 
 			<div v-else class="postmortem-empty">
 				<p v-if="postmortemError" class="postmortem-error mono text-xs">{{ postmortemError }}</p>
-				<button
-					v-if="incident.status === 'closed' && messages.length > 0"
-					class="btn-generate"
-					:disabled="generatingPostmortem"
-					@click="handleGeneratePostmortem"
-				>
+				<button v-if="incident.status === 'closed' && messages.length > 0" class="btn-generate"
+					:disabled="generatingPostmortem" @click="handleGeneratePostmortem">
 					{{ generatingPostmortem ? "生成中..." : "ポストモーテムを生成" }}
 				</button>
 				<span v-else class="mono text-xs text-muted">
@@ -247,12 +250,8 @@ const handleGenerateRunbook = async () => {
 			</div>
 
 			<div v-else class="message-timeline">
-				<div
-					v-for="(msg, i) in messages"
-					:key="msg.messageTs"
-					class="message-item"
-					:style="{ animationDelay: `${i * 30}ms` }"
-				>
+				<div v-for="(msg, i) in messages" :key="msg.messageTs" class="message-item"
+					:style="{ animationDelay: `${i * 30}ms` }">
 					<div class="message-gutter">
 						<span class="message-time mono text-xs">{{ formatMessageTime(msg.recordedAt) }}</span>
 						<div class="timeline-line" />
@@ -626,5 +625,36 @@ const handleGenerateRunbook = async () => {
 .btn-regenerate:hover:not(:disabled) {
 	color: var(--accent);
 	border-color: var(--accent);
+}
+
+.severity-badge {
+	font-family: var(--font-mono);
+	font-size: 0.7rem;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	padding: 2px 8px;
+	border-radius: 3px;
+}
+
+.severity-badge.sev1 {
+	color: var(--status-danger);
+	background: var(--status-danger-dim);
+	border: 1px solid rgba(192, 55, 55, 0.25);
+}
+
+.severity-badge.sev2 {
+	color: var(--status-warning, #c78a1e);
+	background: rgba(199, 138, 30, 0.1);
+	border: 1px solid rgba(199, 138, 30, 0.25);
+}
+
+.severity-badge.sev3 {
+	color: var(--text-secondary);
+	background: var(--bg-elevated);
+	border: 1px solid var(--border-subtle);
+}
+
+.meta-item-wide {
+	flex-basis: 100%;
 }
 </style>

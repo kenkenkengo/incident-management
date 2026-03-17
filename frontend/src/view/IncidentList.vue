@@ -92,26 +92,14 @@ const formatDuration = (incident: Incident) => {
 
 		<!-- Filter tabs -->
 		<div class="filter-tabs">
-			<button
-				class="filter-tab"
-				:class="{ active: statusFilter === undefined }"
-				@click="setFilter(undefined)"
-			>
+			<button class="filter-tab" :class="{ active: statusFilter === undefined }" @click="setFilter(undefined)">
 				All
 			</button>
-			<button
-				class="filter-tab"
-				:class="{ active: statusFilter === 'active' }"
-				@click="setFilter('active')"
-			>
+			<button class="filter-tab" :class="{ active: statusFilter === 'active' }" @click="setFilter('active')">
 				<span class="status-dot active" />
 				Active
 			</button>
-			<button
-				class="filter-tab"
-				:class="{ active: statusFilter === 'closed' }"
-				@click="setFilter('closed')"
-			>
+			<button class="filter-tab" :class="{ active: statusFilter === 'closed' }" @click="setFilter('closed')">
 				<span class="status-dot closed" />
 				Closed
 			</button>
@@ -121,6 +109,7 @@ const formatDuration = (incident: Incident) => {
 		<div class="incident-table">
 			<div class="table-head">
 				<span class="col-status">Status</span>
+				<span class="col-severity">Severity</span>
 				<span class="col-title">Title</span>
 				<span class="col-duration">Duration</span>
 				<span class="col-date">Started</span>
@@ -160,17 +149,17 @@ const formatDuration = (incident: Incident) => {
 
 			<!-- Rows -->
 			<template v-else>
-				<div
-					v-for="(incident, i) in incidents"
-					:key="incident.id"
-					class="table-row"
-					:style="{ animationDelay: `${i * 40}ms` }"
-					@click="goToDetail(incident.id)"
-				>
+				<div v-for="(incident, i) in incidents" :key="incident.id" class="table-row"
+					:style="{ animationDelay: `${i * 40}ms` }" @click="goToDetail(incident.id)">
 					<span class="col-status">
 						<span :class="['status-badge', incident.status]">
 							<span :class="['status-dot', incident.status]" />
 							{{ incident.status === "active" ? "ACTIVE" : "CLOSED" }}
+						</span>
+					</span>
+					<span class="col-severity">
+						<span :class="['status-badge', incident.severity.toLowerCase()]">
+							{{ incident.severity }}
 						</span>
 					</span>
 					<span class="col-title">
@@ -304,7 +293,7 @@ const formatDuration = (incident: Incident) => {
 
 .table-head {
 	display: grid;
-	grid-template-columns: 100px 1fr 80px 160px 32px;
+	grid-template-columns: 100px 70px 1fr 80px 160px 32px;
 	align-items: center;
 	padding: 8px var(--space-lg);
 	background: var(--bg-elevated);
@@ -322,7 +311,7 @@ const formatDuration = (incident: Incident) => {
 
 .table-row {
 	display: grid;
-	grid-template-columns: 100px 1fr 80px 160px 32px;
+	grid-template-columns: 100px 70px 1fr 80px 160px 32px;
 	align-items: center;
 	padding: var(--space-md) var(--space-lg);
 	border-bottom: 1px solid var(--border-subtle);
@@ -424,5 +413,32 @@ const formatDuration = (incident: Incident) => {
 .results-count {
 	text-align: right;
 	padding: var(--space-sm) 0;
+}
+
+.severity-badge {
+	font-family: var(--font-mono);
+	font-size: 0.7rem;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	padding: 2px 8px;
+	border-radius: 3px;
+}
+
+.severity-badge.sev1 {
+	color: var(--status-danger);
+	background: var(--status-danger-dim);
+	border: 1px solid rgba(192, 55, 55, 0.25);
+}
+
+.severity-badge.sev2 {
+	color: var(--status-warning, #c78a1e);
+	background: rgba(199, 138, 30, 0.1);
+	border: 1px solid rgba(199, 138, 30, 0.25);
+}
+
+.severity-badge.sev3 {
+	color: var(--text-secondary);
+	background: var(--bg-elevated);
+	border: 1px solid var(--border-subtle);
 }
 </style>
