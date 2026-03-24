@@ -29,33 +29,48 @@ const loading = ref(true);
 const error = ref("");
 
 const id = route.params.id as string;
+const messagesCursor = ref<string | undefined>(undefined);
+const loadingMore = ref(false);
+
+const callWithAuth = async <R extends { success: boolean; error?: string }>(
+	fn: (token: string) => Promise<R>,
+): Promise<R> => {
+	if (!authStore.accessToken) throw new Error("Not authenticated");
+
+	let res = await fn(authStore.accessToken);
+
+	if (!res.success && res.error === "Unauthorized") {
+		const newToken = await authStore.refreshAccessToken();
+		if (!newToken) {
+			authStore.signOutAction();
+			throw new Error("セッションが期限切れです。再度サインインしてください。");
+		}
+		res = await fn(newToken);
+	}
+
+	return res;
+};
 
 onMounted(async () => {
 	try {
-		if (!authStore.accessToken) return;
-		const incidentRes = await getIncident(authStore.accessToken, id);
+		const incidentRes = await callWithAuth((token) =>
+			getIncident(token, id),
+		);
 		if (incidentRes.success && incidentRes.data) {
 			incident.value = incidentRes.data;
 		} else {
 			error.value = incidentRes.error ?? "Incident not found";
 		}
 
-		// メッセージを全件取得（ページネーションループ）
-		const allMessages: IncidentMessage[] = [];
-		let cursor: string | undefined;
-		do {
-			const res = await getIncidentMessages(authStore.accessToken, id, {
-				limit: 100,
-				cursor,
-			});
-			if (res.success && res.data) {
-				allMessages.push(...res.data);
-			}
-			cursor = res.meta?.nextCursor ?? undefined;
-		} while (cursor);
-		messages.value = allMessages;
+		const msgRes = await callWithAuth((token) =>
+			getIncidentMessages(token, id, { limit: 100 }),
+		);
+		if (msgRes.success && msgRes.data) {
+			messages.value = msgRes.data;
+		}
+		messagesCursor.value = msgRes.meta?.nextCursor ?? undefined;
 
-		const pmRes = await getPostmortem(authStore.accessToken, id);
+		const pmRes = await callWithAuth((token) => getPostmortem(token, id));
 		if (pmRes.success && pmRes.data) {
 			postmortem.value = pmRes.data;
 			postmortemHtml.value = DOMPurify.sanitize(
@@ -90,12 +105,34 @@ const formatMessageTime = (iso: string) => {
 	});
 };
 
+const loadMoreMessages = async () => {
+	if (!messagesCursor.value) return;
+	loadingMore.value = true;
+	try {
+		const res = await callWithAuth((token) =>
+			getIncidentMessages(token, id, {
+				limit: 100,
+				cursor: messagesCursor.value,
+			}),
+		);
+		if (res.success && res.data) {
+			messages.value = [...messages.value, ...res.data];
+		}
+		messagesCursor.value = res.meta?.nextCursor ?? undefined;
+	} catch {
+		error.value = "Failed to load more messages";
+	} finally {
+		loadingMore.value = false;
+	}
+};
+
 const handleGeneratePostmortem = async () => {
-	if (!authStore.accessToken) return;
 	generatingPostmortem.value = true;
 	postmortemError.value = "";
 	try {
-		const res = await generatePostmortem(authStore.accessToken, id);
+		const res = await callWithAuth((token) =>
+			generatePostmortem(token, id),
+		);
 		if (res.success && res.data) {
 			postmortem.value = res.data;
 			postmortemHtml.value = DOMPurify.sanitize(
@@ -112,10 +149,11 @@ const handleGeneratePostmortem = async () => {
 };
 
 const handleGenerateRunbook = async () => {
-	if (!authStore.accessToken) return;
 	generatingRunbook.value = true;
 	try {
-		const res = await generateRunbookFromPostmortem(authStore.accessToken, id);
+		const res = await callWithAuth((token) =>
+			generateRunbookFromPostmortem(token, id),
+		);
 		if (res.success && res.data) {
 			router.push({
 				name: "runbook-new",
@@ -193,7 +231,7 @@ const handleGenerateRunbook = async () => {
 					</div>
 					<div class="meta-item">
 						<span class="meta-label">メッセージ</span>
-						<span class="meta-value mono">{{ messages.length }}件</span>
+						<span class="meta-value mono">{{ messages.length }}件{{ messagesCursor ? "+" : "" }}</span>
 					</div>
 					<div v-if="incident.impact" class="meta-item meta-item-wide">
 						<span class="meta-label">影響範囲</span>
@@ -261,6 +299,12 @@ const handleGenerateRunbook = async () => {
 						<p class="message-text">{{ msg.text }}</p>
 					</div>
 				</div>
+			</div>
+
+			<div v-if="messagesCursor" class="load-more-container">
+				<button class="btn-load-more" :disabled="loadingMore" @click="loadMoreMessages">
+					{{ loadingMore ? "読み込み中..." : "さらに読み込む" }}
+				</button>
 			</div>
 		</template>
 	</div>
@@ -656,5 +700,35 @@ const handleGenerateRunbook = async () => {
 
 .meta-item-wide {
 	flex-basis: 100%;
+}
+
+.load-more-container {
+	display: flex;
+	justify-content: center;
+	padding: var(--space-lg) 0;
+}
+
+.btn-load-more {
+	font-family: var(--font-mono);
+	font-size: 0.8rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	padding: 8px 24px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	color: var(--text-secondary);
+	background: transparent;
+	border: 1px solid var(--border-default);
+}
+
+.btn-load-more:hover:not(:disabled) {
+	color: var(--accent);
+	border-color: var(--accent);
+}
+
+.btn-load-more:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 </style>

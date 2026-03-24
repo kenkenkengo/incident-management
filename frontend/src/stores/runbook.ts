@@ -64,8 +64,9 @@ export const useRunbookStore = defineStore("runbook", () => {
 		if (!nextCursor.value) return;
 		isLoadingMore.value = true;
 		try {
+			const cursor = nextCursor.value ?? undefined;
 			const res = await callWithAuth((token) =>
-				listRunbooks(token, { tags, cursor: nextCursor.value }),
+				listRunbooks(token, { tags, cursor }),
 			);
 			if (!res.success) {
 				throw new Error(res.error ?? "Failed to fetch runbooks");
