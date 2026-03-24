@@ -18,11 +18,9 @@ export const useRunbookStore = defineStore("runbook", () => {
 	const error = ref<string | null>(null);
 	const nextCursor = ref<string | null>(null);
 
-	const callWithAuth = async <T>(
-		fn: (
-			token: string,
-		) => Promise<{ success: boolean; data?: T; error?: string }>,
-	): Promise<{ success: boolean; data?: T; error?: string }> => {
+	const callWithAuth = async <R extends { success: boolean; error?: string }>(
+		fn: (token: string) => Promise<R>,
+	): Promise<R> => {
 		const authStore = useAuthStore();
 		if (!authStore.accessToken) throw new Error("Not authenticated");
 
@@ -47,9 +45,9 @@ export const useRunbookStore = defineStore("runbook", () => {
 		error.value = null;
 		nextCursor.value = null;
 		try {
-			const authStore = useAuthStore();
-			if (!authStore.accessToken) throw new Error("Not authenticated");
-			const res = await listRunbooks(authStore.accessToken, { tags });
+			const res = await callWithAuth((token) =>
+				listRunbooks(token, { tags }),
+			);
 			if (!res.success) {
 				throw new Error(res.error ?? "Failed to fetch runbooks");
 			}
@@ -66,12 +64,9 @@ export const useRunbookStore = defineStore("runbook", () => {
 		if (!nextCursor.value) return;
 		isLoadingMore.value = true;
 		try {
-			const authStore = useAuthStore();
-			if (!authStore.accessToken) throw new Error("Not authenticated");
-			const res = await listRunbooks(authStore.accessToken, {
-				tags,
-				cursor: nextCursor.value,
-			});
+			const res = await callWithAuth((token) =>
+				listRunbooks(token, { tags, cursor: nextCursor.value }),
+			);
 			if (!res.success) {
 				throw new Error(res.error ?? "Failed to fetch runbooks");
 			}
