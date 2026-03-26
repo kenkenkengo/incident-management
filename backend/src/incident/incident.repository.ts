@@ -339,7 +339,7 @@ const toStatusUpdate = (item: Record<string, unknown>): StatusUpdate => ({
 	message: item.message as string | undefined,
 	updatedBy: item.updatedBy as string,
 	updatedAt: item.updatedAt as string,
-})
+});
 
 export const addStatusUpdate = async (data: StatusUpdate): Promise<StatusUpdate> => {
 	await client.send(
@@ -352,7 +352,7 @@ export const addStatusUpdate = async (data: StatusUpdate): Promise<StatusUpdate>
 		}),
 	);
 	return data;
-}
+};
 
 export const listStatusUpdates = async (
 	incidentId: string,
@@ -370,4 +370,4 @@ export const listStatusUpdates = async (
 	);
 
 	return (result.Items ?? []).map(toStatusUpdate);
-}
+};

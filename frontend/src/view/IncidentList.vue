@@ -415,28 +415,19 @@ const formatDuration = (incident: Incident) => {
 	padding: var(--space-sm) 0;
 }
 
-.severity-badge {
-	font-family: var(--font-mono);
-	font-size: 0.7rem;
-	font-weight: 600;
-	letter-spacing: 0.04em;
-	padding: 2px 8px;
-	border-radius: 3px;
-}
-
-.severity-badge.sev1 {
+.status-badge.sev1 {
 	color: var(--status-danger);
 	background: var(--status-danger-dim);
 	border: 1px solid rgba(192, 55, 55, 0.25);
 }
 
-.severity-badge.sev2 {
+.status-badge.sev2 {
 	color: var(--status-warning, #c78a1e);
 	background: rgba(199, 138, 30, 0.1);
 	border: 1px solid rgba(199, 138, 30, 0.25);
 }
 
-.severity-badge.sev3 {
+.status-badge.sev3 {
 	color: var(--text-secondary);
 	background: var(--bg-elevated);
 	border: 1px solid var(--border-subtle);
