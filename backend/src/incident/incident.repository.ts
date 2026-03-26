@@ -37,7 +37,8 @@ const postmortemKey = (incidentId: string) => ({
 const toIncident = (item: Record<string, unknown>): Incident => ({
 	id: item.id as string,
 	channelId: item.channelId as string,
-	sourceChannelId: (item.sourceChannelId as string) ?? (item.channelId as string),
+	sourceChannelId:
+		(item.sourceChannelId as string) ?? (item.channelId as string),
 	title: item.title as string,
 	severity: (item.severity as "SEV1" | "SEV2" | "SEV3") ?? "SEV3",
 	impact: item.impact as string | undefined,
@@ -140,7 +141,10 @@ export const findActiveBySourceChannel = async (
 	return result.Items?.[0] ? toIncident(result.Items[0]) : null;
 };
 
-export const close = async (id: string, resolution: string): Promise<Incident | null> => {
+export const close = async (
+	id: string,
+	resolution: string,
+): Promise<Incident | null> => {
 	try {
 		const result = await client.send(
 			new UpdateCommand({
@@ -341,7 +345,9 @@ const toStatusUpdate = (item: Record<string, unknown>): StatusUpdate => ({
 	updatedAt: item.updatedAt as string,
 });
 
-export const addStatusUpdate = async (data: StatusUpdate): Promise<StatusUpdate> => {
+export const addStatusUpdate = async (
+	data: StatusUpdate,
+): Promise<StatusUpdate> => {
 	await client.send(
 		new PutCommand({
 			TableName: TABLE_NAME,
@@ -370,4 +376,76 @@ export const listStatusUpdates = async (
 	);
 
 	return (result.Items ?? []).map(toStatusUpdate);
+};
+
+export const getLatestActivity = async (
+	incidentId: string,
+): Promise<string | null> => {
+	const pk = `INCIDENT#${incidentId}`;
+
+	// 最新メッセージと最新ステータス更新を並列取得（SK降順で1件）
+	const [msgResult, statusResult] = await Promise.all([
+		client.send(
+			new QueryCommand({
+				TableName: TABLE_NAME,
+				KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
+				ExpressionAttributeValues: { ":pk": pk, ":skPrefix": "MSG#" },
+				ScanIndexForward: false,
+				Limit: 1,
+			}),
+		),
+		client.send(
+			new QueryCommand({
+				TableName: TABLE_NAME,
+				KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
+				ExpressionAttributeValues: { ":pk": pk, ":skPrefix": "STATUS#" },
+				ScanIndexForward: false,
+				Limit: 1,
+			}),
+		),
+	]);
+
+	const latestMsgTs = msgResult.Items?.[0]?.recordedAt as string | undefined;
+	const latestStatusTs = statusResult.Items?.[0]?.updatedAt as
+		| string
+		| undefined;
+
+	if (!latestMsgTs && !latestStatusTs) return null;
+	if (!latestMsgTs) return latestStatusTs!;
+	if (!latestStatusTs) return latestMsgTs;
+
+	return latestMsgTs > latestStatusTs ? latestMsgTs : latestStatusTs;
+};
+
+const reminderKey = (incidentId: string, type: string) => ({
+	pk: `INCIDENT#${incidentId}`,
+	sk: `REMINDER#${type}`,
+});
+
+export const hasReminder = async (
+	incidentId: string,
+	type: string,
+): Promise<boolean> => {
+	const result = await client.send(
+		new GetCommand({
+			TableName: TABLE_NAME,
+			Key: reminderKey(incidentId, type),
+		}),
+	);
+	return !!result.Item;
+};
+
+export const saveReminder = async (
+	incidentId: string,
+	type: string,
+): Promise<void> => {
+	await client.send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...reminderKey(incidentId, type),
+				sentAt: new Date().toISOString(),
+			},
+		}),
+	);
 };

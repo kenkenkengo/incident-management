@@ -1,6 +1,16 @@
 import type { AllMiddlewareArgs, SlackViewMiddlewareArgs } from "@slack/bolt";
 import { Resource } from "sst";
-import { close, create } from "../incident/incident.repository";
+import {
+	addStatusUpdate,
+	close,
+	create,
+} from "../incident/incident.repository";
+import type { StatusUpdate } from "../incident/incident.types";
+import {
+	closeIncidentSchema,
+	createIncidentSchema,
+	statusUpdateSchema,
+} from "../incident/incident.validators";
 import { listAllRunbooks } from "../runbook/runbook.repository";
 import { searchRunbooks } from "../runbook/runbook.search";
 
@@ -44,11 +54,17 @@ export const handleIncidentStartSubmission = async ({
 		userId: string;
 	};
 
-	const title =
-		view.state.values.title_block.title.value ?? "無題のインシデント";
-	const severity = view.state.values.severity_block.severity.selected_option
-		?.value as "SEV1" | "SEV2" | "SEV3";
-	const impact = view.state.values.impact_block.impact.value ?? undefined;
+	const parsed = createIncidentSchema.safeParse({
+		title: view.state.values.title_block.title.value,
+		severity: view.state.values.severity_block.severity.selected_option?.value,
+		impact: view.state.values.impact_block.impact.value ?? undefined,
+	});
+
+	if (!parsed.success) {
+		return;
+	}
+
+	const { title, severity, impact } = parsed.data;
 
 	// 1. 専用チャンネル作成
 	const baseName = await createChannelName(client, channelId);
@@ -69,7 +85,7 @@ export const handleIncidentStartSubmission = async ({
 				newChannelId = retryResult.channel?.id;
 				break;
 			} catch {
-				continue;
+				// この番号でのチャンネル作成に失敗した場合は、次の連番で再試行する
 			}
 		}
 	}
@@ -169,8 +185,15 @@ export const handleIncidentEndSubmission = async ({
 		channelId: string;
 	};
 
-	const resolution =
-		view.state.values.resolution_block.resolution.value ?? "";
+	const parsed = closeIncidentSchema.safeParse({
+		resolution: view.state.values.resolution_block.resolution.value,
+	});
+
+	if (!parsed.success) {
+		return;
+	}
+
+	const { resolution } = parsed.data;
 
 	const incident = await close(incidentId, resolution);
 	if (!incident) {
@@ -192,5 +215,59 @@ export const handleIncidentEndSubmission = async ({
 			`*所要時間:* ${duration}\n` +
 			`*解決方法:* ${resolution}\n\n` +
 			`📝 <${siteUrl}/incidents/${incidentId}|ポストモーテムを作成する>`,
+	});
+};
+
+const STATUS_LABELS: Record<StatusUpdate["status"], string> = {
+	investigating: "調査中",
+	identified: "原因特定",
+	responding: "対応中",
+	recovering: "復旧確認中",
+};
+
+export const handleIncidentStatusSubmission = async ({
+	ack,
+	view,
+	client,
+}: AllMiddlewareArgs & SlackViewMiddlewareArgs) => {
+	await ack();
+
+	const { incidentId, channelId, userId } = JSON.parse(
+		view.private_metadata,
+	) as {
+		incidentId: string;
+		channelId: string;
+		userId: string;
+	};
+
+	const parsed = statusUpdateSchema.safeParse({
+		status: view.state.values.status_block.status.selected_option?.value,
+		message: view.state.values.message_block.message.value ?? undefined,
+	});
+
+	if (!parsed.success) {
+		return;
+	}
+
+	const { status, message } = parsed.data;
+
+	const updatedAt = new Date().toISOString();
+	await addStatusUpdate({
+		incidentId,
+		status,
+		message,
+		updatedBy: userId,
+		updatedAt,
+	});
+
+	const label = STATUS_LABELS[status];
+	const messageText =
+		`🔄 *状態更新: ${label}*\n` +
+		`by <@${userId}>` +
+		(message ? `\n${message}` : "");
+
+	await client.chat.postMessage({
+		channel: channelId,
+		text: messageText,
 	});
 };

@@ -139,10 +139,86 @@ export const handleIncidentCommand = async ({
 		return;
 	}
 
+	if (subcommand === "status") {
+		const active = await findActiveByChannel(command.channel_id);
+		if (!active) {
+			await respond("このチャンネルにアクティブなインシデントはありません。");
+			return;
+		}
+
+		await client.views.open({
+			trigger_id: command.trigger_id,
+			view: {
+				type: "modal",
+				callback_id: "incident_status_modal",
+				private_metadata: JSON.stringify({
+					incidentId: active.id,
+					channelId: command.channel_id,
+					userId: command.user_id,
+				}),
+				title: { type: "plain_text", text: "状態更新" },
+				submit: { type: "plain_text", text: "更新する" },
+				blocks: [
+					{
+						type: "section",
+						text: {
+							type: "mrkdwn",
+							text: `*${active.title}* の状態を更新します`,
+						},
+					},
+					{
+						type: "input",
+						block_id: "status_block",
+						label: { type: "plain_text", text: "現在の状態" },
+						element: {
+							type: "static_select",
+							action_id: "status",
+							options: [
+								{
+									text: { type: "plain_text", text: "調査中" },
+									value: "investigating",
+								},
+								{
+									text: { type: "plain_text", text: "原因特定" },
+									value: "identified",
+								},
+								{
+									text: { type: "plain_text", text: "対応中" },
+									value: "responding",
+								},
+								{
+									text: { type: "plain_text", text: "復旧確認中" },
+									value: "recovering",
+								},
+							],
+						},
+					},
+					{
+						type: "input",
+						block_id: "message_block",
+						label: { type: "plain_text", text: "補足メッセージ" },
+						optional: true,
+						element: {
+							type: "plain_text_input",
+							action_id: "message",
+							multiline: true,
+							placeholder: {
+								type: "plain_text",
+								text: "例: DBコネクションプールの枯渇が原因と判明",
+							},
+						},
+					},
+				],
+			},
+		});
+		return;
+	}
+
 	await respond(
 		"📋 `/incident` コマンド一覧\n\n" +
-		"`/incident start` → インシデントを起票（モーダルが開きます）\n" +
-		"`/incident end` → インシデントをクローズ（モーダルが開きます）\n" +
-		"`/incident help` → このヘルプを表示",
+			"`/incident start` → インシデントを起票（モーダルが開きます）\n" +
+			"`/incident status` → 対応状況を更新（調査中 / 原因特定 / 対応中 / 復旧確認中）\n" +
+			"`/incident end` → インシデントをクローズ（モーダルが開きます）\n" +
+			"`/incident help` → このヘルプを表示",
 	);
 };

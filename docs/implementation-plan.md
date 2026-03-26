@@ -351,40 +351,197 @@ new sst.aws.Cron("IncidentReminderCron", {
 
 ---
 
-## Step 7: フロントエンド — ダッシュボード改善（P2）
+## Step 7: ポストモーテム構造化データ活用（P2）
 
-### 7-1. `Dashboard.vue` — アクティブインシデント表示
+**目的**: ポストモーテム生成時にインシデントの構造化情報を活用し、AIの出力品質を向上
 
-- アクティブインシデント数を目立つカードで表示
-- ポストモーテム未作成のクローズ済みインシデントをリマインド表示
+### 7-1. `postmortem.service.ts` — プロンプト改善
 
-### 7-2. `postmortem.service.ts` — 構造化データ活用
+**`buildPrompt()` のシグネチャ拡張**:
 
-ポストモーテム生成プロンプトに以下を追加:
-- `severity` / `impact` / `resolution`
-- `statusUpdates`（時系列の状態変更履歴）
-- これにより AI がより正確なタイムラインと根本原因分析を生成できる
+```typescript
+// 現状
+const buildPrompt = (incident: Incident, messages: readonly IncidentMessage[]): string
+// 改修後
+const buildPrompt = (incident: Incident, messages: readonly IncidentMessage[], statusUpdates: readonly StatusUpdate[]): string
+```
+
+**プロンプトに構造化情報を追加**:
+
+```
+## インシデント情報
+- タイトル: ${incident.title}
+- 重要度: ${incident.severity}
+- 影響範囲: ${incident.impact ?? "未記入"}
+- 解決方法: ${incident.resolution ?? "未記入"}
+- 所要時間: ${formatDuration(incident.startedAt, incident.endedAt)}
+
+## ステータス変更履歴
+[${ts}] 状態更新: ${label} by ${userId} — ${message}
+...
+
+## チャットログ
+(既存のメッセージログ)
+```
+
+**`generatePostmortem()` のシグネチャ拡張**:
+
+```typescript
+// 現状
+export const generatePostmortem = async (incident: Incident, messages: readonly IncidentMessage[]): Promise<string>
+// 改修後
+export const generatePostmortem = async (incident: Incident, messages: readonly IncidentMessage[], statusUpdates: readonly StatusUpdate[]): Promise<string>
+```
+
+### 7-2. `incident.routes.ts` — postmortem 生成エンドポイント修正
+
+POST `/:id/postmortem` ハンドラーで `listStatusUpdates(id)` を追加呼び出しし、`generatePostmortem` に渡す。
+
+```typescript
+// 変更箇所
+const messages = await listAllMessages(id);
+const statusUpdates = await listStatusUpdates(id);  // 追加
+const content = await generatePostmortem(incident, messages, statusUpdates);  // 引数追加
+```
+
+### 変更ファイル
+
+| ファイル | 変更内容 |
+|---------|---------|
+| `postmortem.service.ts` | buildPrompt, generatePostmortem にステータス更新を追加。プロンプトに severity/impact/resolution/statusUpdates を含める |
+| `incident.routes.ts` | POST `/:id/postmortem` で listStatusUpdates を呼び出して generatePostmortem に渡す |
+| `incident.types.ts` | 変更なし（StatusUpdate は既存） |
+
+---
+
+## Step 8: フロントエンド — ダッシュボード改善（P2）
+
+**目的**: ダッシュボードにインシデント状況を一目で把握できる情報を追加
+
+### 8-1. `Dashboard.vue` — stats-grid にインシデントカード追加
+
+**Active Incidents カード**:
+- アクティブインシデント数を表示
+- 0件: 緑色テキストで "0" 表示
+- 1件以上: 赤背景で強調表示（`.stat-card.danger` スタイル）
+- クリックでインシデント一覧（active フィルタ）へ遷移
+
+**Needs Review カード**:
+- クローズ済み + ポストモーテム未作成のインシデント数を表示
+- フロントエンドで closed インシデント（直近20件）を取得し、各IDに `getPostmortem()` で存在チェック → 未作成数をカウント
+- クリックでインシデント一覧（closed フィルタ）へ遷移
+
+**stats-grid レイアウト調整**:
+- 現状 `grid-template-columns: repeat(3, 1fr)` を維持
+- 2行目にインシデント系カード2つを配置
+
+### 8-2. `Dashboard.vue` — ステータスバー動的化
+
+```
+アクティブインシデント 0件:
+  → 緑ドット + "SYSTEM OPERATIONAL"
+
+アクティブインシデント 1件以上:
+  → 赤ドット(pulse) + "INCIDENT ACTIVE" (赤テキスト)
+
+System Status カード:
+  → 0件: 緑 "OK"
+  → 1件以上: 赤 "ALERT" + アクティブ件数表示
+```
+
+### 8-3. `Dashboard.vue` — Recent Incidents セクション追加
+
+Recent Runbooks セクションの下に配置:
+
+```
+┌─────────────────────────────────────────────────────┐
+│ RECENT INCIDENTS                        [View all →] │
+├─────────────────────────────────────────────────────┤
+│ 01  SEV1  決済APIタイムアウト多発    CLOSED   1h23m  │
+│ 02  SEV2  ログ収集パイプライン停止   ACTIVE   進行中  │
+│ 03  SEV3  管理画面表示崩れ         CLOSED   45m    │
+└─────────────────────────────────────────────────────┘
+```
+
+- 直近5件を表示（active → closed の順、それぞれ startedAt 降順）
+- 各行: severity バッジ + タイトル + ステータスバッジ + 経過時間/所要時間
+- クリックで `/incidents/:id` へ遷移
+- "View all →" で `/incidents` へ遷移
+
+### データ取得
+
+```typescript
+onMounted(async () => {
+  // 既存: ランブック取得
+  await runbookStore.fetchAll();
+
+  // 追加: インシデント取得
+  const [activeRes, closedRes] = await Promise.all([
+    callWithAuth((token) => listIncidents(token, { status: "active", limit: 100 })),
+    callWithAuth((token) => listIncidents(token, { status: "closed", limit: 20 })),
+  ]);
+
+  // アクティブ件数
+  activeIncidents.value = activeRes.data ?? [];
+
+  // ポストモーテム未作成チェック（closed の各IDに対して）
+  const closedItems = closedRes.data ?? [];
+  const pmChecks = await Promise.all(
+    closedItems.map((inc) =>
+      callWithAuth((token) => getPostmortem(token, inc.id))
+        .then((res) => ({ id: inc.id, hasPostmortem: res.success && !!res.data }))
+    ),
+  );
+  needsReviewCount.value = pmChecks.filter((c) => !c.hasPostmortem).length;
+
+  // Recent Incidents（active優先 + closed 最新で計5件）
+  recentIncidents.value = [...activeIncidents.value, ...closedItems].slice(0, 5);
+});
+```
+
+### 変更ファイル
+
+| ファイル | 変更内容 |
+|---------|---------|
+| `Dashboard.vue` | インシデントカード2つ追加、ステータスバー動的化、Recent Incidents セクション追加 |
+
+### 追加 import
+
+```typescript
+import { listIncidents, getPostmortem, type Incident } from "@/lib/api-client";
+```
 
 ---
 
 ## 実装順序サマリー
 
 ```
-Step 1  データモデル拡張（型 + DB + バリデーション）
+Step 1  データモデル拡張（型 + DB + バリデーション）          ✅ 完了
   ↓
-Step 2  Slackコマンド改修（respond→postMessage, モーダル, チャンネル自動作成）
-  ↓     ← ここで一度デプロイ & 動作確認
-Step 3  フロントエンド（インシデント詳細・一覧の強化）
-  ↓     ← ここでデプロイ & 動作確認
-Step 4  /incident status コマンド
+Step 2  Slackコマンド改修（モーダル, チャンネル自動作成）     ✅ 完了
   ↓
-Step 5  /incident help コマンド
-  ↓     ← ここでデプロイ & 動作確認
-Step 6  放置インシデントリマインド
-  ↓     ← ここでデプロイ & 動作確認
-Step 7  ダッシュボード改善 + ポストモーテム強化
+Step 3  フロントエンド（インシデント詳細・一覧の強化）        ✅ 完了
+  ↓
+Step 4  /incident status コマンド                          ✅ 完了
+  ↓
+Step 5  /incident help コマンド                            ✅ 完了
+  ↓
+Step 6  放置インシデントリマインド                           ✅ 完了
+  ↓
+Step 7  ポストモーテム構造化データ活用                       ← 次はここ
+  ↓     ← デプロイ & 動作確認
+Step 8  ダッシュボード改善
         ← 最終デプロイ
 ```
+
+### 実装順序の理由
+
+Step 7 を先に実装する理由:
+- 変更が小さい（2ファイル、プロンプト修正 + 引数追加のみ）
+- 既存のポストモーテム生成の質が即座に向上する
+- バックエンドのみの変更で独立してデプロイ可能
+
+Step 8 は UI が大きめだが、バックエンド変更不要（既存 API で取得可能）。
 
 ## Slack App 設定変更チェックリスト
 
