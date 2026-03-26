@@ -14,6 +14,10 @@ declare module "sst" {
       "name": string
       "type": "sst.aws.Dynamo"
     }
+    "IncidentReminder": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
     "OriginVerifyToken": {
       "type": "sst.sst.Secret"
       "value": string

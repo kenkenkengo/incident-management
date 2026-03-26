@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useIncidentStore } from "@/stores/incident";
@@ -37,8 +37,10 @@ const elapsedTime = (startedAt: string) => {
 	return `${days}d ${hours % 24}h`;
 };
 
+let timerId: ReturnType<typeof setInterval> | undefined;
+
 onMounted(async () => {
-	setInterval(() => {
+	timerId = setInterval(() => {
 		currentTime.value = new Date().toLocaleTimeString("ja-JP", {
 			hour12: false,
 		});
@@ -48,6 +50,12 @@ onMounted(async () => {
 		incidentStore.fetchActive(),
 		incidentStore.fetchNeedingPostmortem(),
 	]);
+});
+
+onUnmounted(() => {
+	if (timerId !== undefined) {
+		clearInterval(timerId);
+	}
 });
 
 const goToRunbooks = () => router.push({ name: "runbook-list" });
@@ -598,7 +606,7 @@ const goToNewRunbook = () => router.push({ name: "runbook-new" });
 .status-dot-sm.active {
   background: var(--status-danger);
   box-shadow: 0 0 4px rgba(192, 55, 55, 0.4);
-  animation: pulse 2s infinite;
+  animation: dashboard-status-pulse 2s infinite;
 }
 
 /* Runbook list */
@@ -710,10 +718,10 @@ const goToNewRunbook = () => router.push({ name: "runbook-new" });
 .status-dot.danger {
   background: var(--status-danger);
   box-shadow: 0 0 6px rgba(192, 55, 55, 0.4);
-  animation: pulse 2s infinite;
+  animation: dashboard-status-pulse 2s infinite;
 }
 
-@keyframes pulse {
+@keyframes dashboard-status-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
