@@ -335,7 +335,10 @@ const handleGenerateRunbook = async () => {
 			</div>
 
 			<div v-else class="message-timeline">
-				<template v-for="(entry, i) in timelineEntries" :key="entry.timestamp + i">
+				<template
+					v-for="(entry, i) in timelineEntries"
+					:key="entry.type + ':' + (entry.type === 'message' ? entry.data.recordedAt : entry.data.updatedAt)"
+				>
 					<!-- Message entry -->
 					<div v-if="entry.type === 'message'" class="message-item"
 						:style="{ animationDelay: `${i * 30}ms` }">

@@ -31,9 +31,22 @@ export const handler = async () => {
 	const slackClient = new WebClient(Resource.SlackBotToken.value);
 	const now = Date.now();
 
-	const result = await listAll({ limit: 100 }, "active");
+	const limit = 100;
+	let cursor: string | undefined;
+	const incidents: Incident[] = [];
 
-	for (const incident of result.items) {
+	while (true) {
+		const result = await listAll({ limit, cursor }, "active");
+		incidents.push(...result.items);
+
+		if (!result.nextCursor) {
+			break;
+		}
+
+		cursor = result.nextCursor;
+	}
+
+	for (const incident of incidents) {
 		const startedAt = new Date(incident.startedAt).getTime();
 
 		const latestActivity = await getLatestActivity(incident.id);
