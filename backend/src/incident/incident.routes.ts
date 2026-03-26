@@ -11,6 +11,7 @@ import {
 	listAll,
 	listAllMessages,
 	listMessages,
+	listStatusUpdates,
 	savePostmortem,
 } from "./incident.repository";
 import {
@@ -56,6 +57,21 @@ incidentRoutes.get("/:id/messages", async (c) => {
 	} catch (error) {
 		console.error("Error retrieving messages", error);
 		return errorResponse(c, "Failed to retrieve messages", 500);
+	}
+});
+
+incidentRoutes.get("/:id/status-updates", async (c) => {
+	try {
+		const id = c.req.param("id");
+		const incident = await findById(id);
+		if (!incident) {
+			return errorResponse(c, "Incident not found", 404);
+		}
+		const statusUpdates = await listStatusUpdates(id);
+		return successResponse(c, statusUpdates);
+	} catch (error) {
+		console.error("Error retrieving status updates", error);
+		return errorResponse(c, "Failed to retrieve status updates", 500);
 	}
 });
 

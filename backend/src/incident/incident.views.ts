@@ -1,6 +1,11 @@
 import type { AllMiddlewareArgs, SlackViewMiddlewareArgs } from "@slack/bolt";
 import { Resource } from "sst";
-import { close, create } from "../incident/incident.repository";
+import {
+	addStatusUpdate,
+	close,
+	create,
+} from "../incident/incident.repository";
+import type { StatusUpdate } from "../incident/incident.types";
 import { listAllRunbooks } from "../runbook/runbook.repository";
 import { searchRunbooks } from "../runbook/runbook.search";
 
@@ -68,9 +73,7 @@ export const handleIncidentStartSubmission = async ({
 				});
 				newChannelId = retryResult.channel?.id;
 				break;
-			} catch {
-				continue;
-			}
+			} catch {}
 		}
 	}
 
@@ -169,8 +172,7 @@ export const handleIncidentEndSubmission = async ({
 		channelId: string;
 	};
 
-	const resolution =
-		view.state.values.resolution_block.resolution.value ?? "";
+	const resolution = view.state.values.resolution_block.resolution.value ?? "";
 
 	const incident = await close(incidentId, resolution);
 	if (!incident) {
@@ -192,5 +194,52 @@ export const handleIncidentEndSubmission = async ({
 			`*所要時間:* ${duration}\n` +
 			`*解決方法:* ${resolution}\n\n` +
 			`📝 <${siteUrl}/incidents/${incidentId}|ポストモーテムを作成する>`,
+	});
+};
+
+const STATUS_LABELS: Record<StatusUpdate["status"], string> = {
+	investigating: "調査中",
+	identified: "原因特定",
+	responding: "対応中",
+	recovering: "復旧確認中",
+};
+
+export const handleIncidentStatusSubmission = async ({
+	ack,
+	view,
+	client,
+}: AllMiddlewareArgs & SlackViewMiddlewareArgs) => {
+	await ack();
+
+	const { incidentId, channelId, userId } = JSON.parse(
+		view.private_metadata,
+	) as {
+		incidentId: string;
+		channelId: string;
+		userId: string;
+	};
+
+	const status = view.state.values.status_block.status.selected_option
+		?.value as StatusUpdate["status"];
+	const message = view.state.values.message_block.message.value ?? undefined;
+
+	const updatedAt = new Date().toISOString();
+	await addStatusUpdate({
+		incidentId,
+		status,
+		message,
+		updatedBy: userId,
+		updatedAt,
+	});
+
+	const label = STATUS_LABELS[status];
+	const messageText =
+		`🔄 *状態更新: ${label}*\n` +
+		`by <@${userId}>` +
+		(message ? `\n${message}` : "");
+
+	await client.chat.postMessage({
+		channel: channelId,
+		text: messageText,
 	});
 };

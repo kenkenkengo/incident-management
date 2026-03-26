@@ -213,6 +213,14 @@ export type Postmortem = {
 	readonly modelId: string;
 };
 
+export type StatusUpdate = {
+	readonly incidentId: string;
+	readonly status: "investigating" | "identified" | "responding" | "recovering";
+	readonly message?: string;
+	readonly updatedBy: string;
+	readonly updatedAt: string;
+};
+
 export type RunbookDraft = {
 	readonly title: string;
 	readonly content: string;
@@ -318,6 +326,24 @@ export const generateRunbookFromPostmortem = async (
 		return res.json() as Promise<{
 			success: boolean;
 			data?: RunbookDraft;
+			error?: string;
+		}>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
+};
+
+export const getStatusUpdates = async (accessToken: string, id: string) => {
+	try {
+		const res = await checkUnauthorized(
+			await fetch(`/api/incidents/${id}/status-updates`, {
+				headers: authHeaders(accessToken),
+			}),
+		);
+		return res.json() as Promise<{
+			success: boolean;
+			data?: StatusUpdate[];
 			error?: string;
 		}>;
 	} catch (e: any) {

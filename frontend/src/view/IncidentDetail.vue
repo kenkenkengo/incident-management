@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import DOMPurify from "dompurify";
 import { marked } from "marked";
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
 	generatePostmortem,
@@ -9,9 +9,11 @@ import {
 	getIncident,
 	getIncidentMessages,
 	getPostmortem,
+	getStatusUpdates,
 	type Incident,
 	type IncidentMessage,
 	type Postmortem,
+	type StatusUpdate,
 } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth";
 
@@ -20,6 +22,7 @@ const router = useRouter();
 const authStore = useAuthStore();
 const incident = ref<Incident | null>(null);
 const messages = ref<IncidentMessage[]>([]);
+const statusUpdates = ref<StatusUpdate[]>([]);
 const postmortem = ref<Postmortem | null>(null);
 const postmortemHtml = ref("");
 const generatingPostmortem = ref(false);
@@ -53,9 +56,7 @@ const callWithAuth = async <R extends { success: boolean; error?: string }>(
 
 onMounted(async () => {
 	try {
-		const incidentRes = await callWithAuth((token) =>
-			getIncident(token, id),
-		);
+		const incidentRes = await callWithAuth((token) => getIncident(token, id));
 		if (incidentRes.success && incidentRes.data) {
 			incident.value = incidentRes.data;
 		} else {
@@ -69,6 +70,13 @@ onMounted(async () => {
 			messages.value = msgRes.data;
 		}
 		messagesCursor.value = msgRes.meta?.nextCursor ?? undefined;
+
+		const statusRes = await callWithAuth((token) =>
+			getStatusUpdates(token, id),
+		);
+		if (statusRes.success && statusRes.data) {
+			statusUpdates.value = statusRes.data;
+		}
 
 		const pmRes = await callWithAuth((token) => getPostmortem(token, id));
 		if (pmRes.success && pmRes.data) {
@@ -95,6 +103,47 @@ const formatDuration = (inc: Incident) => {
 	const m = diffMin % 60;
 	return `${h}時間${m}分`;
 };
+
+type TimelineEntry =
+	| {
+			readonly type: "message";
+			readonly timestamp: string;
+			readonly data: IncidentMessage;
+	  }
+	| {
+			readonly type: "status";
+			readonly timestamp: string;
+			readonly data: StatusUpdate;
+	  };
+
+const STATUS_LABELS: Record<StatusUpdate["status"], string> = {
+	investigating: "調査中",
+	identified: "原因特定",
+	responding: "対応中",
+	recovering: "復旧確認中",
+};
+
+const timelineEntries = computed<readonly TimelineEntry[]>(() => {
+	const entries: TimelineEntry[] = [
+		...messages.value.map(
+			(m): TimelineEntry => ({
+				type: "message",
+				timestamp: m.recordedAt,
+				data: m,
+			}),
+		),
+		...statusUpdates.value.map(
+			(s): TimelineEntry => ({
+				type: "status",
+				timestamp: s.updatedAt,
+				data: s,
+			}),
+		),
+	];
+	return entries.sort(
+		(a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+	);
+});
 
 const formatMessageTime = (iso: string) => {
 	const d = new Date(iso);
@@ -130,9 +179,7 @@ const handleGeneratePostmortem = async () => {
 	generatingPostmortem.value = true;
 	postmortemError.value = "";
 	try {
-		const res = await callWithAuth((token) =>
-			generatePostmortem(token, id),
-		);
+		const res = await callWithAuth((token) => generatePostmortem(token, id));
 		if (res.success && res.data) {
 			postmortem.value = res.data;
 			postmortemHtml.value = DOMPurify.sanitize(
@@ -282,23 +329,42 @@ const handleGenerateRunbook = async () => {
 				<span class="divider-label mono text-xs">MESSAGE LOG</span>
 			</div>
 
-			<!-- Messages -->
-			<div v-if="messages.length === 0" class="empty-messages">
+			<!-- Timeline (messages + status updates merged) -->
+			<div v-if="timelineEntries.length === 0" class="empty-messages">
 				<span class="mono text-muted">メッセージはありません</span>
 			</div>
 
 			<div v-else class="message-timeline">
-				<div v-for="(msg, i) in messages" :key="msg.messageTs" class="message-item"
-					:style="{ animationDelay: `${i * 30}ms` }">
-					<div class="message-gutter">
-						<span class="message-time mono text-xs">{{ formatMessageTime(msg.recordedAt) }}</span>
-						<div class="timeline-line" />
+				<template v-for="(entry, i) in timelineEntries" :key="entry.timestamp + i">
+					<!-- Message entry -->
+					<div v-if="entry.type === 'message'" class="message-item"
+						:style="{ animationDelay: `${i * 30}ms` }">
+						<div class="message-gutter">
+							<span class="message-time mono text-xs">{{ formatMessageTime(entry.data.recordedAt) }}</span>
+							<div class="timeline-line" />
+						</div>
+						<div class="message-content">
+							<span class="message-user mono text-xs">{{ entry.data.userName }}</span>
+							<p class="message-text">{{ entry.data.text }}</p>
+						</div>
 					</div>
-					<div class="message-content">
-						<span class="message-user mono text-xs">{{ msg.userName }}</span>
-						<p class="message-text">{{ msg.text }}</p>
+
+					<!-- Status update entry -->
+					<div v-else class="message-item status-update-item"
+						:style="{ animationDelay: `${i * 30}ms` }">
+						<div class="message-gutter">
+							<span class="message-time mono text-xs">{{ formatMessageTime(entry.data.updatedAt) }}</span>
+							<div class="timeline-line" />
+						</div>
+						<div class="message-content status-update-content">
+							<div class="status-update-badge">
+								<span class="status-update-icon">🔄</span>
+								<span class="status-update-label mono text-xs">状態更新: {{ STATUS_LABELS[entry.data.status] }}</span>
+							</div>
+							<p v-if="entry.data.message" class="message-text status-update-message">{{ entry.data.message }}</p>
+						</div>
 					</div>
-				</div>
+				</template>
 			</div>
 
 			<div v-if="messagesCursor" class="load-more-container">
@@ -696,6 +762,36 @@ const handleGenerateRunbook = async () => {
 	color: var(--text-secondary);
 	background: var(--bg-elevated);
 	border: 1px solid var(--border-subtle);
+}
+
+/* Status update timeline entries */
+.status-update-content {
+	background: var(--bg-elevated);
+	border: 1px solid var(--border-subtle);
+	border-radius: 6px;
+	padding: var(--space-sm) var(--space-md);
+}
+
+.status-update-badge {
+	display: flex;
+	align-items: center;
+	gap: var(--space-xs);
+}
+
+.status-update-icon {
+	font-size: 0.875rem;
+}
+
+.status-update-label {
+	color: var(--accent);
+	font-weight: 600;
+	letter-spacing: 0.04em;
+}
+
+.status-update-message {
+	margin-top: 4px;
+	font-size: 0.875rem;
+	color: var(--text-secondary);
 }
 
 .meta-item-wide {

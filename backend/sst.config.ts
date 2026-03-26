@@ -333,5 +333,18 @@ export default $config({
 				site.nodes.cdn?.nodes.distribution.id!,
 			);
 		}
+
+		// 放置インシデントリマインド（1時間ごと）
+		const reminderHandler = new sst.aws.Function("IncidentReminder", {
+			handler: "src/incident/incident.reminder.handler",
+			runtime: "nodejs22.x",
+			link: [appTable, slackSecrets.botToken],
+			timeout: "60 seconds",
+		});
+
+		new sst.aws.Cron("IncidentReminderCron", {
+			schedule: "rate(1 hour)",
+			job: reminderHandler,
+		});
 	},
 });
