@@ -1,6 +1,7 @@
 export interface Incident {
 	readonly id: string;
 	readonly channelId: string;
+	readonly sourceChannelId: string;
 	readonly title: string;
 	readonly severity: "SEV1" | "SEV2" | "SEV3";
 	readonly impact?: string;

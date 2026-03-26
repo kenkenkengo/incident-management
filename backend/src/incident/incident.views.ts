@@ -50,14 +50,7 @@ export const handleIncidentStartSubmission = async ({
 		?.value as "SEV1" | "SEV2" | "SEV3";
 	const impact = view.state.values.impact_block.impact.value ?? undefined;
 
-	// 1. インシデント作成
-	const incident = await create(
-		{ title, severity, ...(impact !== undefined && { impact }) },
-		channelId,
-		userId,
-	);
-
-	// 2. 専用チャンネル作成
+	// 1. 専用チャンネル作成
 	const baseName = await createChannelName(client, channelId);
 	let newChannelId: string | undefined;
 
@@ -80,6 +73,14 @@ export const handleIncidentStartSubmission = async ({
 			}
 		}
 	}
+
+	// 2. インシデント作成（専用チャンネルIDを優先、起票元チャンネルも記録）
+	const incident = await create(
+		{ title, severity, ...(impact !== undefined && { impact }) },
+		newChannelId ?? channelId,
+		channelId,
+		userId,
+	);
 
 	// 3. ランブック検索
 	let runbookSection = "";

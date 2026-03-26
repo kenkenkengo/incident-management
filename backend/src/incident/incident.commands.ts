@@ -2,7 +2,10 @@ import type {
 	AllMiddlewareArgs,
 	SlackCommandMiddlewareArgs,
 } from "@slack/bolt";
-import { findActiveByChannel } from "../incident/incident.repository";
+import {
+	findActiveByChannel,
+	findActiveBySourceChannel,
+} from "../incident/incident.repository";
 
 export const handleIncidentCommand = async ({
 	command,
@@ -14,7 +17,7 @@ export const handleIncidentCommand = async ({
 	const subcommand = command.text.trim().split(/\s+/)[0];
 
 	if (subcommand === "start") {
-		const existing = await findActiveByChannel(command.channel_id);
+		const existing = await findActiveBySourceChannel(command.channel_id);
 		if (existing) {
 			await respond(
 				`このチャンネルにはすでにアクティブなインシデントがあります："${existing.title}"`,

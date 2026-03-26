@@ -37,6 +37,7 @@ const postmortemKey = (incidentId: string) => ({
 const toIncident = (item: Record<string, unknown>): Incident => ({
 	id: item.id as string,
 	channelId: item.channelId as string,
+	sourceChannelId: (item.sourceChannelId as string) ?? (item.channelId as string),
 	title: item.title as string,
 	severity: (item.severity as "SEV1" | "SEV2" | "SEV3") ?? "SEV3",
 	impact: item.impact as string | undefined,
@@ -59,6 +60,7 @@ const toMessage = (item: Record<string, unknown>): IncidentMessage => ({
 export const create = async (
 	data: CreateIncidentRequest,
 	channelId: string,
+	sourceChannelId: string,
 	startedBy: string,
 ): Promise<Incident> => {
 	const id = crypto.randomUUID();
@@ -66,6 +68,7 @@ export const create = async (
 	const incident: Incident = {
 		id,
 		channelId,
+		sourceChannelId,
 		title: data.title,
 		status: "active",
 		startedAt,
@@ -83,6 +86,8 @@ export const create = async (
 				GSI1SK: startedAt,
 				GSI2PK: channelId,
 				GSI2SK: "active",
+				GSI3PK: sourceChannelId,
+				GSI3SK: "active",
 			},
 		}),
 	);
@@ -117,6 +122,24 @@ export const findActiveByChannel = async (
 	return result.Items?.[0] ? toIncident(result.Items[0]) : null;
 };
 
+export const findActiveBySourceChannel = async (
+	sourceChannelId: string,
+): Promise<Incident | null> => {
+	const result = await client.send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			IndexName: "GSI3",
+			KeyConditionExpression: "GSI3PK = :sourceChannelId AND GSI3SK = :active",
+			ExpressionAttributeValues: {
+				":sourceChannelId": sourceChannelId,
+				":active": "active",
+			},
+			Limit: 1,
+		}),
+	);
+	return result.Items?.[0] ? toIncident(result.Items[0]) : null;
+};
+
 export const close = async (id: string, resolution: string): Promise<Incident | null> => {
 	try {
 		const result = await client.send(
@@ -124,7 +147,7 @@ export const close = async (id: string, resolution: string): Promise<Incident | 
 				TableName: TABLE_NAME,
 				Key: incidentKey(id),
 				UpdateExpression:
-					"SET #status = :closedStatus, endedAt = :endedAt, resolution = :resolution, GSI2SK = :closedStatus",
+					"SET #status = :closedStatus, endedAt = :endedAt, resolution = :resolution, GSI2SK = :closedStatus, GSI3SK = :closedStatus",
 				ExpressionAttributeNames: {
 					"#status": "status",
 				},
