@@ -27,7 +27,7 @@
 
 ## 改善後のユーザー行動マップ
 
-### Phase 1: インシデント起票
+### Phase 1: インシデント起票 — ✅ 実装済み
 
 ```
 ユーザー: /incident start
@@ -84,7 +84,7 @@ interface Incident {
 }
 ```
 
-### Phase 2: 対応中
+### Phase 2: 対応中 — ✅ 実装済み
 
 ```
 チャンネルで障害対応の議論
@@ -119,7 +119,7 @@ interface StatusUpdate {
 }
 ```
 
-### Phase 2.5: 放置インシデントのリマインド
+### Phase 2.5: 放置インシデントのリマインド — ✅ 実装済み
 
 ```
 アクティブなインシデントが一定時間クローズされない場合
@@ -151,7 +151,7 @@ interface StatusUpdate {
 - 最終メッセージ時刻と現在時刻を比較して条件判定
 - リマインド送信済みフラグを DynamoDB に記録（SK: `REMINDER#2h` / `REMINDER#24h`）して重複防止
 
-### Phase 2.6: ヘルプコマンド
+### Phase 2.6: ヘルプコマンド — ✅ 実装済み
 
 ```
 ユーザー: /incident help（または引数なし）
@@ -178,7 +178,7 @@ interface StatusUpdate {
 
 ※ ヘルプは本人だけに見えればよいので `respond()`（エフェメラル）のまま。
 
-### Phase 3: クローズ
+### Phase 3: クローズ — ✅ 実装済み
 
 ```
 対応完了 → /incident end
@@ -205,7 +205,7 @@ interface StatusUpdate {
      └──────────────────────────────────────┘
 ```
 
-### Phase 4: 振り返り（Web UI）
+### Phase 4: 振り返り（Web UI） — 🔧 一部実装済み
 
 ```
 インシデント詳細ページ
@@ -214,19 +214,22 @@ interface StatusUpdate {
   → メッセージ一覧 + ポストモーテム生成ボタン
 
   【改善後】
-  → ヘッダーにインシデント概要を表示
+  ✅ → ヘッダーにインシデント概要を表示
      ├─ タイトル、重要度バッジ、影響範囲
      ├─ 起票者、所要時間
      └─ 解決方法
-  → タイムラインにステータス変更イベントが挟まる
+  ✅ → タイムラインにステータス変更イベントが挟まる
      ├─ 14:30 🚨 インシデント開始 by @yamada
      ├─ 14:32 💬 メッセージ ...
      ├─ 14:45 🔄 状態更新: 調査中 → 原因特定
      ├─ 15:10 💬 メッセージ ...
      └─ 15:53 ✅ クローズ（解決方法: ...）
-  → ポストモーテム生成時にこれらの構造化データも活用
+  🔧 → ポストモーテム生成時にこれらの構造化データも活用
      → AIがより質の高いポストモーテムを生成できる
-  → ポストモーテム確認後「ランブックを作成」CTA
+     → 詳細は implementation-plan.md Step 7 参照
+  🔧 → ダッシュボードにアクティブインシデント表示 + ポストモーテム未作成リマインド
+     → 詳細は implementation-plan.md Step 8 参照
+  ✅ → ポストモーテム確認後「ランブックを作成」CTA（既存機能として実装済み）
 ```
 
 ---
@@ -235,24 +238,28 @@ interface StatusUpdate {
 
 ### バックエンド
 
-| ファイル | 変更内容 |
-|---------|---------|
-| `incident.types.ts` | `severity`, `impact`, `resolution` フィールド追加。`StatusUpdate` 型追加 |
-| `incident.repository.ts` | create に severity/impact 対応。close に resolution 対応。StatusUpdate の CRUD 追加 |
-| `incident.commands.ts` | `respond()` → `client.chat.postMessage()` に全面変更。モーダル対応（`views.open`）。チャンネル自動作成（`conversations.create` + `conversations.invite`）。`/incident status` サブコマンド追加 |
-| `slack.handler.ts` | `view_submission` イベント（モーダル送信）のハンドラー追加 |
-| `message.events.ts` | 変更なし（専用チャンネルのメッセージのみ記録される） |
-| `sst.config.ts` | DynamoDB に `STATUS#` / `REMINDER#` SK パターン対応（既存の単一テーブル設計で対応可能、スキーマ変更不要）。EventBridge Scheduler + リマインド用 Lambda 追加 |
-| `incident.reminder.ts`（新規） | 放置インシデントのリマインド Lambda ハンドラー |
+| ファイル | 変更内容 | 状態 |
+|---------|---------|------|
+| `incident.types.ts` | `severity`, `impact`, `resolution` フィールド追加。`StatusUpdate` 型追加 | ✅ |
+| `incident.validators.ts`（新規） | Zod バリデーションスキーマ（createIncident, closeIncident, statusUpdate） | ✅ |
+| `incident.repository.ts` | create に severity/impact 対応。close に resolution 対応。StatusUpdate の CRUD 追加。getLatestActivity / saveReminder / hasReminder 追加 | ✅ |
+| `incident.commands.ts` | モーダル対応（`views.open`）。`/incident start` / `end` / `status` / `help` サブコマンド | ✅ |
+| `incident.views.ts`（新規） | モーダル送信ハンドラー（start / end / status）。チャンネル自動作成（`conversations.create` + `conversations.invite`）。ランブック検索・ピン留め | ✅ |
+| `incident.routes.ts` | GET `/incidents/:id/status-updates` エンドポイント追加 | ✅ |
+| `slack.handler.ts` | `view_submission` イベント（incident_start_modal / incident_end_modal / incident_status_modal）のハンドラー登録 | ✅ |
+| `message.events.ts` | 変更なし（専用チャンネルのメッセージのみ記録される） | — |
+| `sst.config.ts` | EventBridge Cron + リマインド用 Lambda 追加 | ✅ |
+| `incident.reminder.ts`（新規） | 放置インシデントのリマインド Lambda ハンドラー（2時間無更新 / 24時間オープン） | ✅ |
+| `postmortem.service.ts` | ポストモーテム生成時に構造化データ（severity, statusUpdates, resolution）を活用 | 🔧 P2 |
 
 ### フロントエンド
 
-| ファイル | 変更内容 |
-|---------|---------|
-| `incident.types.ts`（新規） | フロントエンド用の型定義追加 |
-| `IncidentDetail.vue` | ヘッダーに概要表示。タイムラインにステータス変更イベント表示 |
-| `IncidentList.vue` | 重要度バッジ表示。解決方法の有無表示 |
-| `Dashboard.vue` | アクティブインシデント数表示。ポストモーテム未作成リマインド |
+| ファイル | 変更内容 | 状態 |
+|---------|---------|------|
+| `api-client.ts` | `StatusUpdate` 型追加。`getStatusUpdates()` 関数追加 | ✅ |
+| `IncidentDetail.vue` | ヘッダーに概要表示（severity/impact/resolution）。タイムラインにステータス変更イベントをメッセージと統合表示 | ✅ |
+| `IncidentList.vue` | 重要度バッジ表示 | ✅ |
+| `Dashboard.vue` | アクティブインシデント数表示。ポストモーテム未作成リマインド。Recent Incidents セクション | 🔧 P2 |
 
 ### Slack Bot 権限
 
@@ -268,20 +275,20 @@ interface StatusUpdate {
 
 ## 実装優先度
 
-### P0: 最低限これがないと使いづらい
-1. **`respond()` → `client.chat.postMessage()` 変更 + 専用チャンネル自動作成** — 全員に見える形にし、インシデントごとにチャンネルを分離
-2. **起票時のモーダル追加** — タイトル（必須）、重要度（必須）、影響範囲（任意）
-3. **クローズ時のモーダル追加** — 解決方法の入力
-4. **クローズ時にポストモーテム作成リンクを表示**
+### P0: 最低限これがないと使いづらい — ✅ 完了
+1. ✅ **`respond()` → `client.chat.postMessage()` 変更 + 専用チャンネル自動作成** — 全員に見える形にし、インシデントごとにチャンネルを分離
+2. ✅ **起票時のモーダル追加** — タイトル（必須）、重要度（必須）、影響範囲（任意）
+3. ✅ **クローズ時のモーダル追加** — 解決方法の入力
+4. ✅ **クローズ時にポストモーテム作成リンクを表示**
 
-### P1: 対応の質を上げる
-5. **`/incident status` コマンド** — 状態更新の記録
-6. **`/incident help` コマンド** — 使い方をすぐ確認できる
-7. **放置インシデントのリマインド** — 2時間無更新 / 24時間オープンで自動通知
-8. **Web UI のインシデント詳細にステータス変更タイムライン表示**
-9. **Web UI のインシデント詳細ヘッダーに概要表示**（重要度、影響範囲、解決方法）
+### P1: 対応の質を上げる — ✅ 完了
+5. ✅ **`/incident status` コマンド** — 状態更新の記録
+6. ✅ **`/incident help` コマンド** — 使い方をすぐ確認できる
+7. ✅ **放置インシデントのリマインド** — 2時間無更新 / 24時間オープンで自動通知
+8. ✅ **Web UI のインシデント詳細にステータス変更タイムライン表示**
+9. ✅ **Web UI のインシデント詳細ヘッダーに概要表示**（重要度、影響範囲、解決方法）
 
-### P2: ナレッジ循環を強化
+### P2: ナレッジ循環を強化 — 🔧 未着手
 10. **ダッシュボードにアクティブインシデント表示**
 11. **ポストモーテム未作成インシデントのリマインド**
 12. **ポストモーテム生成時に構造化データ（severity, status updates, resolution）を活用**
