@@ -93,7 +93,10 @@ npx sst secret set OriginVerifyToken $(uuidgen)
 |---|---|
 | `chat:write` | ボットがメッセージを送信 |
 | `channels:history` | パブリックチャンネルのメッセージを読み取り |
+| `channels:manage` | インシデント専用チャンネルの作成 |
+| `channels:read` | チャンネル情報の取得 |
 | `commands` | スラッシュコマンドの登録 |
+| `pins:write` | インシデントサマリーのピン留め |
 | `users:read` | ユーザー名の取得 |
 
 設定後「Install to Workspace」でインストールし、表示される **Bot User OAuth Token** (`xoxb-...`) をコピー。
@@ -105,6 +108,15 @@ npx sst secret set OriginVerifyToken $(uuidgen)
 | `/incident` | `https://<API_URL>/slack/events` | インシデント開始/終了 |
 
 > Request URL は `npx sst dev` 実行後に表示される API Gateway の URL を使用。
+
+#### Interactivity & Shortcuts
+
+モーダル（インシデント起票・終了・状態更新）の送信を処理するために**必須**の設定。
+
+1. 「Interactivity」を **ON** にする
+2. **Request URL** に Slash Commands と同じ URL を設定: `https://<API_URL>/slack/events`
+
+> この設定がないと、モーダルの「起票する」「終了する」等のボタンを押しても Slack が「接続できません」エラーになる。
 
 #### Event Subscriptions
 
@@ -173,6 +185,7 @@ npm run dev
 `npx sst dev` の出力に表示される API URL を確認し、Slack App の以下に設定:
 
 - Slash Commands の Request URL: `https://<API_URL>/slack/events`
+- Interactivity & Shortcuts の Request URL: `https://<API_URL>/slack/events`
 - Event Subscriptions の Request URL: `https://<API_URL>/slack/events`
 
 ## 使い方

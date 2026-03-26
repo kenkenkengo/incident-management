@@ -67,11 +67,12 @@ Generosity Incident Management — a monorepo with separate `backend/` and `fron
 - `frontend/src/App.vue` — ルートコンポーネント
 - `frontend/src/router/index.ts` — Vue Router 設定（SignIn, Dashboard + 認証ガード）
 - `frontend/src/view/SignIn.vue` — サインインページ（auth store 連携済み）
-- `frontend/src/view/Dashboard.vue` — ダッシュボードページ
+- `frontend/src/view/Dashboard.vue` — ダッシュボードページ（アクティブインシデント表示 + ポストモーテム未作成リマインド）
 - `frontend/src/components/CommonHeader.vue` — 共通ヘッダー（ナビ + サインアウト）
 - `frontend/src/lib/api-client.ts` — API クライアント（signIn, refreshTokens）
 - `frontend/src/stores/auth.ts` — 認証 Pinia ストア（localStorage 永続化）
 - `frontend/src/stores/runbook.ts` — ランブック Pinia ストア（CRUD 操作）
+- `frontend/src/stores/incident.ts` — インシデント Pinia ストア（ダッシュボード用: アクティブ/ポストモーテム未作成）
 - `frontend/biome.json` — Biome v2 リンター/フォーマッター設定
 - `frontend/src/view/RunbookList.vue` — ランブック一覧ページ
 - `frontend/src/view/RunbookDetail.vue` — ランブック詳細ページ（Markdown レンダリング）
@@ -96,6 +97,7 @@ Generosity Incident Management — a monorepo with separate `backend/` and `fron
 | PUT | `/runbooks/:id` | JWT | ランブック更新 |
 | DELETE | `/runbooks/:id` | JWT | ランブック削除 |
 | GET | `/incidents` | JWT | インシデント一覧（`?status=active\|closed` フィルタ可） |
+| GET | `/incidents/needs-postmortem` | JWT | ポストモーテム未作成のクローズ済みインシデント一覧 |
 | GET | `/incidents/:id` | JWT | インシデント詳細取得 |
 | GET | `/incidents/:id/messages` | JWT | メッセージ一覧（時系列） |
 | POST | `/incidents/:id/postmortem` | JWT | ポストモーテム生成（Bedrock） |

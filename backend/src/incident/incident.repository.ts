@@ -1,4 +1,5 @@
 import {
+	BatchGetCommand,
 	GetCommand,
 	PutCommand,
 	QueryCommand,
@@ -214,6 +215,69 @@ export const listAll = async (
 			? encodeCursor(result.LastEvaluatedKey)
 			: null,
 	};
+};
+
+export const listClosedWithoutPostmortem = async (
+	limit = 50,
+): Promise<readonly Incident[]> => {
+	const incidentsWithoutPostmortem: Incident[] = [];
+	let lastEvaluatedKey: Record<string, unknown> | undefined = undefined;
+
+	while (incidentsWithoutPostmortem.length < limit) {
+		const result = await client.send(
+			new QueryCommand({
+				TableName: TABLE_NAME,
+				IndexName: "GSI1",
+				KeyConditionExpression: "GSI1PK = :type",
+				FilterExpression: "#status = :closed",
+				ExpressionAttributeValues: {
+					":type": "INCIDENT",
+					":closed": "closed",
+				},
+				ExpressionAttributeNames: {
+					"#status": "status",
+				},
+				Limit: limit,
+				ExclusiveStartKey: lastEvaluatedKey,
+				ScanIndexForward: false,
+			}),
+		);
+
+		const incidents = (result.Items ?? []).map(toIncident);
+
+		if (incidents.length > 0) {
+			const keys = incidents.map((inc) => postmortemKey(inc.id));
+			const batchResult = await client.send(
+				new BatchGetCommand({
+					RequestItems: {
+						[TABLE_NAME]: { Keys: keys },
+					},
+				}),
+			);
+			const existingPostmortemIds = new Set(
+				(batchResult.Responses?.[TABLE_NAME] ?? []).map(
+					(item) => item.incidentId as string,
+				),
+			);
+
+			for (const incident of incidents) {
+				if (!existingPostmortemIds.has(incident.id)) {
+					incidentsWithoutPostmortem.push(incident);
+					if (incidentsWithoutPostmortem.length >= limit) {
+						break;
+					}
+				}
+			}
+		}
+
+		if (!result.LastEvaluatedKey) {
+			break;
+		}
+
+		lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown>;
+	}
+
+	return incidentsWithoutPostmortem;
 };
 
 export const addMessage = async (

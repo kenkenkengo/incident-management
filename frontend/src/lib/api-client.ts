@@ -352,6 +352,26 @@ export const getStatusUpdates = async (accessToken: string, id: string) => {
 	}
 };
 
+export const listIncidentsNeedingPostmortem = async (
+	accessToken: string,
+) => {
+	try {
+		const res = await checkUnauthorized(
+			await fetch("/api/incidents/needs-postmortem", {
+				headers: authHeaders(accessToken),
+			}),
+		);
+		return res.json() as Promise<{
+			success: boolean;
+			data?: Incident[];
+			error?: string;
+		}>;
+	} catch (e: any) {
+		if (e?.status === 401) return { success: false, error: "Unauthorized" };
+		throw e;
+	}
+};
+
 export const getPostmortem = async (accessToken: string, id: string) => {
 	try {
 		const res = await checkUnauthorized(
