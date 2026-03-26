@@ -10,6 +10,7 @@ import {
 	getPostmortem,
 	listAll,
 	listAllMessages,
+	listClosedWithoutPostmortem,
 	listMessages,
 	listStatusUpdates,
 	savePostmortem,
@@ -31,6 +32,21 @@ incidentRoutes.get("/", async (c) => {
 	} catch (error) {
 		console.error("Error retrieving incident", error);
 		return errorResponse(c, "Failed to retrieve incident", 500);
+	}
+});
+
+// NOTE: リテラルパスは /:id より前に配置する必要がある
+incidentRoutes.get("/needs-postmortem", async (c) => {
+	try {
+		const incidents = await listClosedWithoutPostmortem();
+		return successResponse(c, incidents);
+	} catch (error) {
+		console.error("Error retrieving incidents needing postmortem", error);
+		return errorResponse(
+			c,
+			"Failed to retrieve incidents needing postmortem",
+			500,
+		);
 	}
 });
 
@@ -83,12 +99,15 @@ incidentRoutes.post("/:id/postmortem", async (c) => {
 			return errorResponse(c, "Incident not found", 404);
 		}
 
-		const messages = await listAllMessages(id);
+		const [messages, statusUpdates] = await Promise.all([
+			listAllMessages(id),
+			listStatusUpdates(id),
+		]);
 		if (messages.length === 0) {
 			return errorResponse(c, "No messages to analyze", 400);
 		}
 
-		const content = await generatePostmortem(incident, messages);
+		const content = await generatePostmortem(incident, messages, statusUpdates);
 		const postmortem = await savePostmortem(id, content, MODEL_ID);
 		return successResponse(c, postmortem, 201);
 	} catch (error) {

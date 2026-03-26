@@ -216,6 +216,39 @@ export const listAll = async (
 	};
 };
 
+export const listClosedWithoutPostmortem = async (
+	limit = 50,
+): Promise<readonly Incident[]> => {
+	const result = await client.send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			IndexName: "GSI1",
+			KeyConditionExpression: "GSI1PK = :type",
+			FilterExpression: "#status = :closed",
+			ExpressionAttributeValues: {
+				":type": "INCIDENT",
+				":closed": "closed",
+			},
+			ExpressionAttributeNames: {
+				"#status": "status",
+			},
+			Limit: limit,
+			ScanIndexForward: false,
+		}),
+	);
+
+	const incidents = (result.Items ?? []).map(toIncident);
+
+	const checks = await Promise.all(
+		incidents.map(async (incident) => {
+			const pm = await getPostmortem(incident.id);
+			return { incident, hasPostmortem: !!pm };
+		}),
+	);
+
+	return checks.filter((c) => !c.hasPostmortem).map((c) => c.incident);
+};
+
 export const addMessage = async (
 	incidentId: string,
 	data: {

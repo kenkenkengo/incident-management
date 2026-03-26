@@ -205,7 +205,7 @@ interface StatusUpdate {
      └──────────────────────────────────────┘
 ```
 
-### Phase 4: 振り返り（Web UI） — 🔧 一部実装済み
+### Phase 4: 振り返り（Web UI） — ✅ 実装済み
 
 ```
 インシデント詳細ページ
@@ -224,11 +224,9 @@ interface StatusUpdate {
      ├─ 14:45 🔄 状態更新: 調査中 → 原因特定
      ├─ 15:10 💬 メッセージ ...
      └─ 15:53 ✅ クローズ（解決方法: ...）
-  🔧 → ポストモーテム生成時にこれらの構造化データも活用
+  ✅ → ポストモーテム生成時にこれらの構造化データも活用
      → AIがより質の高いポストモーテムを生成できる
-     → 詳細は implementation-plan.md Step 7 参照
-  🔧 → ダッシュボードにアクティブインシデント表示 + ポストモーテム未作成リマインド
-     → 詳細は implementation-plan.md Step 8 参照
+  ✅ → ダッシュボードにアクティブインシデント表示 + ポストモーテム未作成リマインド
   ✅ → ポストモーテム確認後「ランブックを作成」CTA（既存機能として実装済み）
 ```
 
@@ -250,7 +248,7 @@ interface StatusUpdate {
 | `message.events.ts` | 変更なし（専用チャンネルのメッセージのみ記録される） | — |
 | `sst.config.ts` | EventBridge Cron + リマインド用 Lambda 追加 | ✅ |
 | `incident.reminder.ts`（新規） | 放置インシデントのリマインド Lambda ハンドラー（2時間無更新 / 24時間オープン） | ✅ |
-| `postmortem.service.ts` | ポストモーテム生成時に構造化データ（severity, statusUpdates, resolution）を活用 | 🔧 P2 |
+| `postmortem.service.ts` | ポストモーテム生成時に構造化データ（severity, statusUpdates, resolution）を活用 | ✅ |
 
 ### フロントエンド
 
@@ -259,7 +257,7 @@ interface StatusUpdate {
 | `api-client.ts` | `StatusUpdate` 型追加。`getStatusUpdates()` 関数追加 | ✅ |
 | `IncidentDetail.vue` | ヘッダーに概要表示（severity/impact/resolution）。タイムラインにステータス変更イベントをメッセージと統合表示 | ✅ |
 | `IncidentList.vue` | 重要度バッジ表示 | ✅ |
-| `Dashboard.vue` | アクティブインシデント数表示。ポストモーテム未作成リマインド。Recent Incidents セクション | 🔧 P2 |
+| `Dashboard.vue` | アクティブインシデント数表示。ポストモーテム未作成リマインド。Recent Incidents セクション | ✅ |
 
 ### Slack Bot 権限
 
@@ -288,7 +286,7 @@ interface StatusUpdate {
 8. ✅ **Web UI のインシデント詳細にステータス変更タイムライン表示**
 9. ✅ **Web UI のインシデント詳細ヘッダーに概要表示**（重要度、影響範囲、解決方法）
 
-### P2: ナレッジ循環を強化 — 🔧 未着手
-10. **ダッシュボードにアクティブインシデント表示**
-11. **ポストモーテム未作成インシデントのリマインド**
-12. **ポストモーテム生成時に構造化データ（severity, status updates, resolution）を活用**
+### P2: ナレッジ循環を強化 — ✅ 完了
+10. ✅ **ダッシュボードにアクティブインシデント表示**
+11. ✅ **ポストモーテム未作成インシデントのリマインド**
+12. ✅ **ポストモーテム生成時に構造化データ（severity, status updates, resolution）を活用**

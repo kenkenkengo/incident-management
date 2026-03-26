@@ -2,21 +2,60 @@ import {
 	BedrockRuntimeClient,
 	InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
-import type { Incident, IncidentMessage } from "./incident.types";
+import type { Incident, IncidentMessage, StatusUpdate } from "./incident.types";
 
 const client = new BedrockRuntimeClient({});
 export const MODEL_ID = "openai.gpt-oss-safeguard-120b";
 
+const STATUS_LABELS: Record<StatusUpdate["status"], string> = {
+	investigating: "調査中",
+	identified: "原因特定",
+	responding: "対応中",
+	recovering: "復旧確認中",
+};
+
+const computeDuration = (startedAt: string, endedAt?: string): string => {
+	if (!endedAt) return "対応中";
+	const diffMs = new Date(endedAt).getTime() - new Date(startedAt).getTime();
+	const totalMinutes = Math.floor(diffMs / 60000);
+	const hours = Math.floor(totalMinutes / 60);
+	const minutes = totalMinutes % 60;
+	if (hours === 0) return `${minutes}分`;
+	return `${hours}時間${minutes}分`;
+};
+
+const formatStatusUpdates = (
+	statusUpdates: readonly StatusUpdate[],
+): string => {
+	if (statusUpdates.length === 0) return "（なし）";
+	return statusUpdates
+		.map(
+			(su) =>
+				`[${su.updatedAt}] ${STATUS_LABELS[su.status]}${su.message ? ` - ${su.message}` : ""} (by ${su.updatedBy})`,
+		)
+		.join("\n");
+};
+
 const buildPrompt = (
 	incident: Incident,
 	messages: readonly IncidentMessage[],
+	statusUpdates: readonly StatusUpdate[],
 ): string => {
 	const messageLog = messages
 		.map((m) => `[${m.recordedAt}] ${m.userName}: ${m.text}`)
 		.join("\n");
 
-	return `以下はインシデント「${incident.title}」の対応中に交わされたチャットログです。
+	return `以下はインシデント「${incident.title}」の対応中に交わされたチャットログと構造化データです。
 これをもとにポストモーテム（振り返り文書）をMarkdown形式で生成してください。
+
+## インシデント情報
+- 重大度: ${incident.severity}
+- 影響範囲: ${incident.impact ?? "未記載"}
+- 解決策: ${incident.resolution ?? "未記載"}
+- 発生期間: ${incident.startedAt} 〜 ${incident.endedAt ?? "対応中"}（${computeDuration(incident.startedAt, incident.endedAt)}）
+
+## ステータス更新履歴
+${formatStatusUpdates(statusUpdates)}
 
 ## 含めるべきセクション
 - 概要（何が起きたか）
@@ -128,6 +167,7 @@ export const generateRunbookDraft = async (
 export const generatePostmortem = async (
 	incident: Incident,
 	messages: readonly IncidentMessage[],
+	statusUpdates: readonly StatusUpdate[],
 ): Promise<string> => {
 	const requestBody = {
 		messages: [
@@ -136,7 +176,7 @@ export const generatePostmortem = async (
 				content:
 					"あなたは SRE チームのポストモーテム作成を支援するアシスタントです。簡潔で実用的な文書を生成してください。",
 			},
-			{ role: "user", content: buildPrompt(incident, messages) },
+			{ role: "user", content: buildPrompt(incident, messages, statusUpdates) },
 		],
 		max_completion_tokens: 4096,
 		temperature: 0.3,
