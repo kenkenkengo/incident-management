@@ -23,4 +23,9 @@ app.view("incident_start_modal", handleIncidentStartSubmission);
 app.view("incident_end_modal", handleIncidentEndSubmission);
 app.view("incident_status_modal", handleIncidentStatusSubmission);
 
-export const handler = receiver.toHandler();
+const asyncHandler = receiver.toHandler();
+
+export const handler = (
+	event: Parameters<typeof asyncHandler>[0],
+	context: Parameters<typeof asyncHandler>[1],
+) => asyncHandler(event, context);

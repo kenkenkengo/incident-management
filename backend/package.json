@@ -27,7 +27,7 @@
 		"@aws-sdk/s3-request-presigner": "^3.997.0",
 		"@slack/bolt": "^4.6.0",
 		"hono": "^4.12.2",
-		"sst": "4.0.2",
+		"sst": "^4.5.10",
 		"zod": "^4.3.6"
 	}
 }

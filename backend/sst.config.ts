@@ -235,7 +235,7 @@ const addRoutes = (
 	// 認証は AwsLambdaReceiver の Slack 署名検証（signingSecret）で保護される
 	api.route("POST /slack/events", {
 		handler: "src/slack/slack.handler.handler",
-		link: [appTable, slackSecrets.botToken, slackSecrets.signingSecret],
+		link: [appTable, site, slackSecrets.botToken, slackSecrets.signingSecret],
 	});
 
 	api.route(
@@ -335,16 +335,14 @@ export default $config({
 		}
 
 		// 放置インシデントリマインド（1時間ごと）
-		const reminderHandler = new sst.aws.Function("IncidentReminder", {
-			handler: "src/incident/incident.reminder.handler",
-			runtime: "nodejs22.x",
-			link: [appTable, slackSecrets.botToken],
-			timeout: "60 seconds",
-		});
-
-		new sst.aws.Cron("IncidentReminderCron", {
+		new sst.aws.CronV2("IncidentReminderCron", {
 			schedule: "rate(1 hour)",
-			job: reminderHandler,
+			function: {
+				handler: "src/incident/incident.reminder.handler",
+				runtime: "nodejs22.x",
+				link: [appTable, slackSecrets.botToken],
+				timeout: "60 seconds",
+			},
 		});
 	},
 });
