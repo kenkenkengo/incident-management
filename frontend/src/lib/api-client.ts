@@ -20,6 +20,18 @@ export const refreshTokens = async (refreshToken: string) => {
 	return response.json();
 };
 
+export type PaginationMeta = {
+	readonly limit: number;
+	readonly nextCursor: string | null;
+};
+
+export type PaginatedResponse<T> = {
+	readonly success: boolean;
+	readonly data?: T[];
+	readonly meta?: PaginationMeta;
+	readonly error?: string;
+};
+
 export type Runbook = {
 	readonly id: string;
 	readonly title: string;
@@ -67,19 +79,23 @@ export const listTags = async (accessToken: string) => {
 	}
 };
 
-export const listRunbooks = async (accessToken: string, tags?: string[]) => {
-	const url = tags
-		? `/api/runbooks?tag=${encodeURIComponent(tags.join(","))}`
-		: "/api/runbooks";
+export const listRunbooks = async (
+	accessToken: string,
+	options?: { tags?: string[]; limit?: number; cursor?: string },
+) => {
+	const params = new URLSearchParams();
+	if (options?.tags && options.tags.length > 0) {
+		params.set("tag", options.tags.join(","));
+	}
+	if (options?.limit) params.set("limit", String(options.limit));
+	if (options?.cursor) params.set("cursor", options.cursor);
+	const query = params.toString();
+	const url = query ? `/api/runbooks?${query}` : "/api/runbooks";
 	try {
 		const res = await checkUnauthorized(
 			await fetch(url, { headers: runbookHeaders(accessToken) }),
 		);
-		return res.json() as Promise<{
-			success: boolean;
-			data?: Runbook[];
-			error?: string;
-		}>;
+		return res.json() as Promise<PaginatedResponse<Runbook>>;
 	} catch (e: any) {
 		if (e?.status === 401) return { success: false, error: "Unauthorized" };
 		throw e;
@@ -172,10 +188,13 @@ export type Incident = {
 	readonly id: string;
 	readonly channelId: string;
 	readonly title: string;
+	readonly severity: "SEV1" | "SEV2" | "SEV3";
+	readonly impact?: string;
 	readonly status: "active" | "closed";
 	readonly startedAt: string;
 	readonly endedAt?: string;
 	readonly startedBy: string;
+	readonly resolution?: string;
 };
 
 export type IncidentMessage = {
@@ -206,20 +225,19 @@ const authHeaders = (accessToken: string) => ({
 
 export const listIncidents = async (
 	accessToken: string,
-	status?: "active" | "closed",
+	options?: { status?: "active" | "closed"; limit?: number; cursor?: string },
 ) => {
-	const params = status ? `?status=${status}` : "";
+	const params = new URLSearchParams();
+	if (options?.status) params.set("status", options.status);
+	if (options?.limit) params.set("limit", String(options.limit));
+	if (options?.cursor) params.set("cursor", options.cursor);
+	const query = params.toString();
+	const url = query ? `/api/incidents?${query}` : "/api/incidents";
 	try {
 		const res = await checkUnauthorized(
-			await fetch(`/api/incidents${params}`, {
-				headers: authHeaders(accessToken),
-			}),
+			await fetch(url, { headers: authHeaders(accessToken) }),
 		);
-		return res.json() as Promise<{
-			success: boolean;
-			data?: Incident[];
-			error?: string;
-		}>;
+		return res.json() as Promise<PaginatedResponse<Incident>>;
 	} catch (e: any) {
 		if (e?.status === 401) return { success: false, error: "Unauthorized" };
 		throw e;
@@ -244,18 +262,23 @@ export const getIncident = async (accessToken: string, id: string) => {
 	}
 };
 
-export const getIncidentMessages = async (accessToken: string, id: string) => {
+export const getIncidentMessages = async (
+	accessToken: string,
+	id: string,
+	options?: { limit?: number; cursor?: string },
+) => {
+	const params = new URLSearchParams();
+	if (options?.limit) params.set("limit", String(options.limit));
+	if (options?.cursor) params.set("cursor", options.cursor);
+	const query = params.toString();
+	const url = query
+		? `/api/incidents/${id}/messages?${query}`
+		: `/api/incidents/${id}/messages`;
 	try {
 		const res = await checkUnauthorized(
-			await fetch(`/api/incidents/${id}/messages`, {
-				headers: authHeaders(accessToken),
-			}),
+			await fetch(url, { headers: authHeaders(accessToken) }),
 		);
-		return res.json() as Promise<{
-			success: boolean;
-			data?: IncidentMessage[];
-			error?: string;
-		}>;
+		return res.json() as Promise<PaginatedResponse<IncidentMessage>>;
 	} catch (e: any) {
 		if (e?.status === 401) return { success: false, error: "Unauthorized" };
 		throw e;

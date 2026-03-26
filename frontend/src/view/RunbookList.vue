@@ -26,17 +26,25 @@ onMounted(async () => {
 	}
 });
 
-const applyFilter = () => {
+const currentTags = () => {
 	const tags = tagsInput.value
 		.split(",")
 		.map((t) => t.trim())
 		.filter(Boolean);
-	store.fetchAll(tags.length > 0 ? tags : undefined);
+	return tags.length > 0 ? tags : undefined;
+};
+
+const applyFilter = () => {
+	store.fetchAll(currentTags());
 };
 
 const clearFilter = () => {
 	tagsInput.value = "";
 	store.fetchAll();
+};
+
+const loadMore = () => {
+	store.fetchMore(currentTags());
 };
 
 const goToDetail = (id: string) => {
@@ -142,6 +150,13 @@ const goToNew = () => {
           <span class="col-arrow">→</span>
         </div>
       </template>
+    </div>
+
+    <!-- Load more -->
+    <div v-if="store.nextCursor && !store.isLoading" class="load-more">
+      <button class="btn-load-more" :disabled="store.isLoadingMore" @click="loadMore">
+        {{ store.isLoadingMore ? "読み込み中..." : "もっと読む" }}
+      </button>
     </div>
 
     <!-- Results count -->
@@ -348,6 +363,37 @@ const goToNew = () => {
 
 .state-message.empty {
   color: var(--text-secondary);
+}
+
+/* Load more */
+.load-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-md) 0;
+}
+
+.btn-load-more {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-default);
+  padding: 8px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-load-more:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn-load-more:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Results count */

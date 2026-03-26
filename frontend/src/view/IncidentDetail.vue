@@ -29,24 +29,48 @@ const loading = ref(true);
 const error = ref("");
 
 const id = route.params.id as string;
+const messagesCursor = ref<string | undefined>(undefined);
+const loadingMore = ref(false);
+
+const callWithAuth = async <R extends { success: boolean; error?: string }>(
+	fn: (token: string) => Promise<R>,
+): Promise<R> => {
+	if (!authStore.accessToken) throw new Error("Not authenticated");
+
+	let res = await fn(authStore.accessToken);
+
+	if (!res.success && res.error === "Unauthorized") {
+		const newToken = await authStore.refreshAccessToken();
+		if (!newToken) {
+			authStore.signOutAction();
+			throw new Error("セッションが期限切れです。再度サインインしてください。");
+		}
+		res = await fn(newToken);
+	}
+
+	return res;
+};
 
 onMounted(async () => {
 	try {
-		if (!authStore.accessToken) return;
-		const [incidentRes, messagesRes] = await Promise.all([
-			getIncident(authStore.accessToken, id),
-			getIncidentMessages(authStore.accessToken, id),
-		]);
+		const incidentRes = await callWithAuth((token) =>
+			getIncident(token, id),
+		);
 		if (incidentRes.success && incidentRes.data) {
 			incident.value = incidentRes.data;
 		} else {
 			error.value = incidentRes.error ?? "Incident not found";
 		}
-		if (messagesRes.success && messagesRes.data) {
-			messages.value = messagesRes.data;
-		}
 
-		const pmRes = await getPostmortem(authStore.accessToken, id);
+		const msgRes = await callWithAuth((token) =>
+			getIncidentMessages(token, id, { limit: 100 }),
+		);
+		if (msgRes.success && msgRes.data) {
+			messages.value = msgRes.data;
+		}
+		messagesCursor.value = msgRes.meta?.nextCursor ?? undefined;
+
+		const pmRes = await callWithAuth((token) => getPostmortem(token, id));
 		if (pmRes.success && pmRes.data) {
 			postmortem.value = pmRes.data;
 			postmortemHtml.value = DOMPurify.sanitize(
@@ -81,12 +105,34 @@ const formatMessageTime = (iso: string) => {
 	});
 };
 
+const loadMoreMessages = async () => {
+	if (!messagesCursor.value) return;
+	loadingMore.value = true;
+	try {
+		const res = await callWithAuth((token) =>
+			getIncidentMessages(token, id, {
+				limit: 100,
+				cursor: messagesCursor.value,
+			}),
+		);
+		if (res.success && res.data) {
+			messages.value = [...messages.value, ...res.data];
+		}
+		messagesCursor.value = res.meta?.nextCursor ?? undefined;
+	} catch {
+		error.value = "Failed to load more messages";
+	} finally {
+		loadingMore.value = false;
+	}
+};
+
 const handleGeneratePostmortem = async () => {
-	if (!authStore.accessToken) return;
 	generatingPostmortem.value = true;
 	postmortemError.value = "";
 	try {
-		const res = await generatePostmortem(authStore.accessToken, id);
+		const res = await callWithAuth((token) =>
+			generatePostmortem(token, id),
+		);
 		if (res.success && res.data) {
 			postmortem.value = res.data;
 			postmortemHtml.value = DOMPurify.sanitize(
@@ -103,10 +149,11 @@ const handleGeneratePostmortem = async () => {
 };
 
 const handleGenerateRunbook = async () => {
-	if (!authStore.accessToken) return;
 	generatingRunbook.value = true;
 	try {
-		const res = await generateRunbookFromPostmortem(authStore.accessToken, id);
+		const res = await callWithAuth((token) =>
+			generateRunbookFromPostmortem(token, id),
+		);
 		if (res.success && res.data) {
 			router.push({
 				name: "runbook-new",
@@ -136,7 +183,8 @@ const handleGenerateRunbook = async () => {
 			<div class="loading-state">
 				<div class="skeleton" style="height: 32px; width: 60%; border-radius: 4px; margin-bottom: 16px;" />
 				<div class="skeleton" style="height: 20px; width: 30%; border-radius: 3px; margin-bottom: 32px;" />
-				<div v-for="i in 5" :key="i" class="skeleton" :style="`height: 16px; width: ${80 + (i % 3) * 10}%; border-radius: 3px; margin-bottom: 12px;`" />
+				<div v-for="i in 5" :key="i" class="skeleton"
+					:style="`height: 16px; width: ${80 + (i % 3) * 10}%; border-radius: 3px; margin-bottom: 12px;`" />
 			</div>
 		</template>
 
@@ -164,6 +212,12 @@ const handleGenerateRunbook = async () => {
 
 				<div class="meta-grid">
 					<div class="meta-item">
+						<span class="meta-label">重要度</span>
+						<span class="meta-value">
+							<span :class="['severity-badge', incident.severity.toLowerCase()]">{{ incident.severity }}</span>
+						</span>
+					</div>
+					<div class="meta-item">
 						<span class="meta-label">開始</span>
 						<span class="meta-value mono">{{ formatDate(incident.startedAt) }}</span>
 					</div>
@@ -177,7 +231,15 @@ const handleGenerateRunbook = async () => {
 					</div>
 					<div class="meta-item">
 						<span class="meta-label">メッセージ</span>
-						<span class="meta-value mono">{{ messages.length }}件</span>
+						<span class="meta-value mono">{{ messages.length }}件{{ messagesCursor ? "+" : "" }}</span>
+					</div>
+					<div v-if="incident.impact" class="meta-item meta-item-wide">
+						<span class="meta-label">影響範囲</span>
+						<span class="meta-value">{{ incident.impact }}</span>
+					</div>
+					<div v-if="incident.resolution" class="meta-item meta-item-wide">
+						<span class="meta-label">解決方法</span>
+						<span class="meta-value">{{ incident.resolution }}</span>
 					</div>
 				</div>
 			</div>
@@ -193,18 +255,10 @@ const handleGenerateRunbook = async () => {
 						生成日時: {{ formatDate(postmortem.generatedAt) }}
 					</span>
 					<div class="postmortem-actions">
-						<button
-							class="btn-runbook"
-							:disabled="generatingRunbook"
-							@click="handleGenerateRunbook"
-						>
+						<button class="btn-runbook" :disabled="generatingRunbook" @click="handleGenerateRunbook">
 							{{ generatingRunbook ? "生成中..." : "Runbookを生成" }}
 						</button>
-						<button
-							class="btn-regenerate"
-							:disabled="generatingPostmortem"
-							@click="handleGeneratePostmortem"
-						>
+						<button class="btn-regenerate" :disabled="generatingPostmortem" @click="handleGeneratePostmortem">
 							{{ generatingPostmortem ? "生成中..." : "再生成" }}
 						</button>
 					</div>
@@ -214,12 +268,8 @@ const handleGenerateRunbook = async () => {
 
 			<div v-else class="postmortem-empty">
 				<p v-if="postmortemError" class="postmortem-error mono text-xs">{{ postmortemError }}</p>
-				<button
-					v-if="incident.status === 'closed' && messages.length > 0"
-					class="btn-generate"
-					:disabled="generatingPostmortem"
-					@click="handleGeneratePostmortem"
-				>
+				<button v-if="incident.status === 'closed' && messages.length > 0" class="btn-generate"
+					:disabled="generatingPostmortem" @click="handleGeneratePostmortem">
 					{{ generatingPostmortem ? "生成中..." : "ポストモーテムを生成" }}
 				</button>
 				<span v-else class="mono text-xs text-muted">
@@ -238,12 +288,8 @@ const handleGenerateRunbook = async () => {
 			</div>
 
 			<div v-else class="message-timeline">
-				<div
-					v-for="(msg, i) in messages"
-					:key="msg.messageTs"
-					class="message-item"
-					:style="{ animationDelay: `${i * 30}ms` }"
-				>
+				<div v-for="(msg, i) in messages" :key="msg.messageTs" class="message-item"
+					:style="{ animationDelay: `${i * 30}ms` }">
 					<div class="message-gutter">
 						<span class="message-time mono text-xs">{{ formatMessageTime(msg.recordedAt) }}</span>
 						<div class="timeline-line" />
@@ -253,6 +299,12 @@ const handleGenerateRunbook = async () => {
 						<p class="message-text">{{ msg.text }}</p>
 					</div>
 				</div>
+			</div>
+
+			<div v-if="messagesCursor" class="load-more-container">
+				<button class="btn-load-more" :disabled="loadingMore" @click="loadMoreMessages">
+					{{ loadingMore ? "読み込み中..." : "さらに読み込む" }}
+				</button>
 			</div>
 		</template>
 	</div>
@@ -617,5 +669,66 @@ const handleGenerateRunbook = async () => {
 .btn-regenerate:hover:not(:disabled) {
 	color: var(--accent);
 	border-color: var(--accent);
+}
+
+.severity-badge {
+	font-family: var(--font-mono);
+	font-size: 0.7rem;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	padding: 2px 8px;
+	border-radius: 3px;
+}
+
+.severity-badge.sev1 {
+	color: var(--status-danger);
+	background: var(--status-danger-dim);
+	border: 1px solid rgba(192, 55, 55, 0.25);
+}
+
+.severity-badge.sev2 {
+	color: var(--status-warning, #c78a1e);
+	background: rgba(199, 138, 30, 0.1);
+	border: 1px solid rgba(199, 138, 30, 0.25);
+}
+
+.severity-badge.sev3 {
+	color: var(--text-secondary);
+	background: var(--bg-elevated);
+	border: 1px solid var(--border-subtle);
+}
+
+.meta-item-wide {
+	flex-basis: 100%;
+}
+
+.load-more-container {
+	display: flex;
+	justify-content: center;
+	padding: var(--space-lg) 0;
+}
+
+.btn-load-more {
+	font-family: var(--font-mono);
+	font-size: 0.8rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	padding: 8px 24px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	color: var(--text-secondary);
+	background: transparent;
+	border: 1px solid var(--border-default);
+}
+
+.btn-load-more:hover:not(:disabled) {
+	color: var(--accent);
+	border-color: var(--accent);
+}
+
+.btn-load-more:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 </style>

@@ -3,26 +3,21 @@ import type {
 	SlackCommandMiddlewareArgs,
 } from "@slack/bolt";
 import {
-	close,
-	create,
 	findActiveByChannel,
+	findActiveBySourceChannel,
 } from "../incident/incident.repository";
-import { listAllRunbooks } from "../runbook/runbook.repository";
-import { searchRunbooks } from "../runbook/runbook.search";
 
 export const handleIncidentCommand = async ({
 	command,
 	ack,
 	respond,
+	client,
 }: AllMiddlewareArgs & SlackCommandMiddlewareArgs) => {
 	await ack();
-	const args = command.text.trim().split(/\s+/);
-	const subcommand = args[0];
+	const subcommand = command.text.trim().split(/\s+/)[0];
 
 	if (subcommand === "start") {
-		const title = args.slice(1).join(" ") || "無題のインシデント";
-
-		const existing = await findActiveByChannel(command.channel_id);
+		const existing = await findActiveBySourceChannel(command.channel_id);
 		if (existing) {
 			await respond(
 				`このチャンネルにはすでにアクティブなインシデントがあります："${existing.title}"`,
@@ -30,31 +25,71 @@ export const handleIncidentCommand = async ({
 			return;
 		}
 
-		const incident = await create(
-			{ title },
-			command.channel_id,
-			command.user_id,
-		);
-
-		let message = `🚨 インシデント開始: "${incident.title}"\nこのチャンネルのメッセージを記録しています。`;
-
-		try {
-			const allRunbooks = await listAllRunbooks();
-			const suggestions = searchRunbooks(allRunbooks, title);
-			if (suggestions.length > 0) {
-				const list = suggestions
-					.map(
-						(r) =>
-							`• *${r.title}*${r.tags.length > 0 ? ` [${r.tags.join(", ")}]` : ""}`,
-					)
-					.join("\n");
-				message += `\n\n📖 関連するランブックが見つかりました:\n${list}\nWebアプリで詳細を確認してください。`;
-			}
-		} catch (error) {
-			console.error("Error searching runbooks:", error);
-		}
-
-		await respond(message);
+		await client.views.open({
+			trigger_id: command.trigger_id,
+			view: {
+				type: "modal",
+				callback_id: "incident_start_modal",
+				private_metadata: JSON.stringify({
+					channelId: command.channel_id,
+					userId: command.user_id,
+				}),
+				title: { type: "plain_text", text: "インシデント起票" },
+				submit: { type: "plain_text", text: "起票する" },
+				blocks: [
+					{
+						type: "input",
+						block_id: "title_block",
+						label: { type: "plain_text", text: "タイトル" },
+						element: {
+							type: "plain_text_input",
+							action_id: "title",
+							placeholder: {
+								type: "plain_text",
+								text: "例: 決済APIタイムアウト多発",
+							},
+						},
+					},
+					{
+						type: "input",
+						block_id: "severity_block",
+						label: { type: "plain_text", text: "重要度" },
+						element: {
+							type: "static_select",
+							action_id: "severity",
+							options: [
+								{
+									text: { type: "plain_text", text: "SEV1 - 緊急" },
+									value: "SEV1",
+								},
+								{
+									text: { type: "plain_text", text: "SEV2 - 重大" },
+									value: "SEV2",
+								},
+								{
+									text: { type: "plain_text", text: "SEV3 - 軽微" },
+									value: "SEV3",
+								},
+							],
+						},
+					},
+					{
+						type: "input",
+						block_id: "impact_block",
+						label: { type: "plain_text", text: "影響範囲" },
+						optional: true,
+						element: {
+							type: "plain_text_input",
+							action_id: "impact",
+							placeholder: {
+								type: "plain_text",
+								text: "例: 本番環境・全ユーザー",
+							},
+						},
+					},
+				],
+			},
+		});
 		return;
 	}
 
@@ -64,11 +99,50 @@ export const handleIncidentCommand = async ({
 			await respond("このチャンネルにアクティブなインシデントはありません。");
 			return;
 		}
-		await close(active.id);
-		await respond(
-			`✅ インシデント終了: "${active.title}"\nメッセージの記録を停止しました。`,
-		);
+
+		await client.views.open({
+			trigger_id: command.trigger_id,
+			view: {
+				type: "modal",
+				callback_id: "incident_end_modal",
+				private_metadata: JSON.stringify({
+					incidentId: active.id,
+					channelId: command.channel_id,
+				}),
+				title: { type: "plain_text", text: "インシデント終了" },
+				submit: { type: "plain_text", text: "終了する" },
+				blocks: [
+					{
+						type: "section",
+						text: {
+							type: "mrkdwn",
+							text: `*${active.title}* を終了します`,
+						},
+					},
+					{
+						type: "input",
+						block_id: "resolution_block",
+						label: { type: "plain_text", text: "解決方法" },
+						element: {
+							type: "plain_text_input",
+							action_id: "resolution",
+							multiline: true,
+							placeholder: {
+								type: "plain_text",
+								text: "例: APIサーバー再起動 + コネクションプール設定を max=100 に変更",
+							},
+						},
+					},
+				],
+			},
+		});
 		return;
 	}
-	await respond("使い方: `/incident start [タイトル]` または `/incident end`");
+
+	await respond(
+		"📋 `/incident` コマンド一覧\n\n" +
+		"`/incident start` → インシデントを起票（モーダルが開きます）\n" +
+		"`/incident end` → インシデントをクローズ（モーダルが開きます）\n" +
+		"`/incident help` → このヘルプを表示",
+	);
 };
