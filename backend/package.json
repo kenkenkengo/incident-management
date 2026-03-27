@@ -4,6 +4,7 @@
 	"scripts": {
 		"build": "esbuild --bundle --outfile=./dist/index.js --platform=node --target=node20 ./src/index.ts",
 		"deploy": "sst deploy",
+		"deploy:prod": "sst deploy --stage production",
 		"remove": "sst remove",
 		"update": "aws lambda update-function-code --zip-file fileb://lambda.zip --function-name hello",
 		"zip": "zip -j lambda.zip dist/index.js",
