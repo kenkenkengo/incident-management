@@ -100,6 +100,7 @@ const createTokenRotation = (
 			{
 				actions: [
 					"cloudfront:GetDistribution",
+					"cloudfront:GetDistributionConfig",
 					"cloudfront:UpdateDistribution",
 					"cloudfront:CreateInvalidation",
 				],
@@ -175,14 +176,6 @@ const createSite = (api: sst.aws.ApiGatewayV2, secret: sst.Secret) => {
 						originRequestPolicyId: "b689b0a8-53d0-40ab-baf2-68738e2966ac",
 					},
 				];
-
-				args.transform = {
-					...args.transform,
-					distribution: (_distArgs, opts) => {
-						// ローテーションでCloudFrontのDistributionConfigを更新するため、sstの管理外にする
-						opts.ignoreChanges = ["origins"];
-					},
-				};
 			},
 		},
 	});
