@@ -14,6 +14,10 @@ declare module "sst" {
       "name": string
       "type": "sst.aws.Dynamo"
     }
+    "AutoStartToken": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
     "OriginVerifyToken": {
       "type": "sst.sst.Secret"
       "value": string
