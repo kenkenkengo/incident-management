@@ -86,7 +86,9 @@ const batchDelete = async (keys) => {
 			if (requests.length > 0 && ++attempt <= 5) {
 				await new Promise((r) => setTimeout(r, 200 * attempt));
 			} else if (requests.length > 0) {
-				throw new Error(`UnprocessedItems remain after retries: ${requests.length}`);
+				throw new Error(
+					`UnprocessedItems remain after retries: ${requests.length}`,
+				);
 			}
 		}
 	}
@@ -109,7 +111,9 @@ const main = async () => {
 			await batchDelete(keys);
 			deletedIncidents++;
 			if (deletedIncidents % 25 === 0) {
-				console.log(`  deleted ${deletedIncidents}/${ids.length} incidents ...`);
+				console.log(
+					`  deleted ${deletedIncidents}/${ids.length} incidents ...`,
+				);
 			}
 		}
 	}
