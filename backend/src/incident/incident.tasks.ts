@@ -3,6 +3,7 @@ import { Resource } from "sst";
 import { listAllRunbooks } from "../runbook/runbook.repository";
 import { searchRunbooks } from "../runbook/runbook.search";
 import type { SlackTask } from "../slack/slack.tasks";
+import { createIncidentBacklogIssue } from "./backlog.service";
 import {
 	addStatusUpdate,
 	close,
@@ -277,6 +278,25 @@ export const runIncidentStart = async (
 			});
 		} catch {
 			// 起票元チャンネルへの投稿失敗は無視
+		}
+	}
+
+	// Backlog 課題を自動作成（P1-3）。失敗しても起票フローは止めない。
+	const backlog = await createIncidentBacklogIssue({
+		title,
+		severity,
+		...(impact !== undefined && { impact }),
+		...(project !== undefined && { project }),
+		...(externalImpact !== undefined && { externalImpact }),
+	});
+	if (backlog) {
+		try {
+			await client.chat.postMessage({
+				channel: newChannelId ?? channelId,
+				text: `📋 Backlog 課題を作成しました: <${backlog.url}|${backlog.issueKey}>`,
+			});
+		} catch {
+			// 投稿失敗は無視
 		}
 	}
 
