@@ -327,6 +327,8 @@ export default $config({
 		const slackSecrets = createSlackSecrets();
 		// 自動起票エンドポイントの共有トークン（監視側と共有する）
 		const autoStartToken = new sst.Secret("AutoStartToken");
+		// 重大度別の周知通知先（JSON, P0-2）。未設定なら通知なし。
+		const incidentNotifyConfig = new sst.Secret("IncidentNotifyConfig");
 
 		// Slack モーダル送信の重い後処理を非同期化するキュー + ワーカー
 		// 可視性タイムアウトはワーカーの timeout(60秒) 以上が必須。
@@ -346,7 +348,7 @@ export default $config({
 			{
 				handler: "src/slack/slack.worker.handler",
 				runtime: "nodejs22.x",
-				link: [appTable, site, slackSecrets.botToken],
+				link: [appTable, site, slackSecrets.botToken, incidentNotifyConfig],
 				timeout: "60 seconds",
 			},
 			// 1 メッセージ = 1 実行にして、失敗時の再処理で他タスクを

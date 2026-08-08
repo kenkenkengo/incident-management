@@ -55,6 +55,68 @@ const SEVERITY_LABELS: Record<
 	SEV3: "SEV3 - 軽微",
 };
 
+// 重大度別の周知先設定（P0-2）。SST Secret IncidentNotifyConfig に JSON で外部設定する。
+// 例: {"SEV1":{"channels":["C0B2W9TJ24D"],"mentions":["S08SPQM8D99","U01J1HU9HP1"]}}
+// 未設定・不正な場合は通知しない（無害）。
+interface NotifyTarget {
+	readonly channels?: readonly string[];
+	readonly mentions?: readonly string[];
+}
+
+const parseNotifyConfig = (): Record<string, NotifyTarget> => {
+	try {
+		const raw = Resource.IncidentNotifyConfig.value;
+		if (!raw || !raw.trim()) {
+			return {};
+		}
+		const parsed: unknown = JSON.parse(raw);
+		return typeof parsed === "object" && parsed !== null
+			? (parsed as Record<string, NotifyTarget>)
+			: {};
+	} catch {
+		return {};
+	}
+};
+
+// メンションID整形: サブチーム(S...)は <!subteam^ID>、それ以外(U.../W...)は <@ID>
+const formatMention = (id: string): string =>
+	id.startsWith("S") ? `<!subteam^${id}>` : `<@${id}>`;
+
+const notifyStakeholders = async (
+	client: WebClient,
+	severity: Extract<SlackTask, { kind: "incident_start" }>["severity"],
+	opts: {
+		readonly title: string;
+		readonly impact?: string;
+		readonly severityLabel: string;
+		readonly incidentChannelId?: string;
+		readonly sourceChannelId: string;
+	},
+): Promise<void> => {
+	const target = parseNotifyConfig()[severity];
+	const channels = target?.channels ?? [];
+	if (channels.length === 0) {
+		return;
+	}
+
+	const mentions = (target?.mentions ?? []).map(formatMention).join(" ");
+	const link = `<#${opts.incidentChannelId ?? opts.sourceChannelId}>`;
+	const text =
+		`🚨 *[${opts.severityLabel}] インシデント発生*\n` +
+		`*タイトル:* ${opts.title}\n` +
+		(opts.impact ? `*影響範囲:* ${opts.impact}\n` : "") +
+		`*対応チャンネル:* ${link}` +
+		(mentions ? `\n${mentions}` : "");
+
+	for (const channel of channels) {
+		try {
+			await client.chat.postMessage({ channel, text });
+		} catch {
+			// 通知先チャンネルに Bot 未参加などは無視（例外で暴走させない）
+		}
+	}
+};
+
 export const runIncidentStart = async (
 	client: WebClient,
 	task: Extract<SlackTask, { kind: "incident_start" }>,
@@ -192,6 +254,15 @@ export const runIncidentStart = async (
 			// 起票元チャンネルへの投稿失敗は無視
 		}
 	}
+
+	// 重大度別の周知通知（上長・営業・関係チャンネル等）。設定は外部Secret（P0-2）。
+	await notifyStakeholders(client, severity, {
+		title,
+		impact,
+		severityLabel,
+		incidentChannelId: newChannelId,
+		sourceChannelId: channelId,
+	});
 };
 
 export const runIncidentEnd = async (
