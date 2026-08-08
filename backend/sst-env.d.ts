@@ -18,6 +18,10 @@ declare module "sst" {
       "type": "sst.sst.Secret"
       "value": string
     }
+    "IncidentNotifyConfig": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
     "OriginVerifyToken": {
       "type": "sst.sst.Secret"
       "value": string
