@@ -376,13 +376,15 @@ export default $config({
 			);
 		}
 
-		// 放置インシデントリマインド（1時間ごと）
+		// 放置インシデントのリマインド + エスカレーション（15分ごと）
+		// エスカレーション（P0-3）を分単位で効かせるため 1時間→15分に短縮。
+		// 2h/24h リマインドと escalation はいずれも重複送信を DynamoDB で防止。
 		new sst.aws.CronV2("IncidentReminderCron", {
-			schedule: "rate(1 hour)",
+			schedule: "rate(15 minutes)",
 			function: {
 				handler: "src/incident/incident.reminder.handler",
 				runtime: "nodejs22.x",
-				link: [appTable, slackSecrets.botToken],
+				link: [appTable, slackSecrets.botToken, incidentNotifyConfig],
 				timeout: "60 seconds",
 			},
 		});
