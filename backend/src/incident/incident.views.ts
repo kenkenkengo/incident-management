@@ -1,51 +1,20 @@
 import type { AllMiddlewareArgs, SlackViewMiddlewareArgs } from "@slack/bolt";
-import { Resource } from "sst";
-import {
-	addStatusUpdate,
-	close,
-	create,
-} from "../incident/incident.repository";
-import type { StatusUpdate } from "../incident/incident.types";
+import { enqueueSlackTask } from "../slack/slack.tasks";
 import {
 	closeIncidentSchema,
 	createIncidentSchema,
 	statusUpdateSchema,
-} from "../incident/incident.validators";
-import { listAllRunbooks } from "../runbook/runbook.repository";
-import { searchRunbooks } from "../runbook/runbook.search";
+} from "./incident.validators";
 
-const formatDuration = (startedAt: string, endedAt: string): string => {
-	const diff = new Date(endedAt).getTime() - new Date(startedAt).getTime();
-	const hours = Math.floor(diff / (1000 * 60 * 60));
-	const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-	if (hours > 0) {
-		return `${hours}時間${minutes}分`;
-	}
-	return `${minutes}分`;
-};
-
-const createChannelName = async (
-	slackClient: AllMiddlewareArgs["client"],
-	sourceChannelId: string,
-): Promise<string> => {
-	let channelName = "unknown";
-	try {
-		const info = await slackClient.conversations.info({
-			channel: sourceChannelId,
-		});
-		channelName = info.channel?.name ?? "unknown";
-	} catch {
-		// チャンネル名取得失敗時はfallback
-	}
-
-	const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-	return `inc-${channelName}-${date}`;
-};
+/**
+ * view_submission ハンドラは Slack の 3 秒制限を守るため、
+ * 検証まで済ませたら即 ack + キュー投入で応答を返す。
+ * チャンネル作成・投稿などの重い処理は slack.worker が非同期で実行する。
+ */
 
 export const handleIncidentStartSubmission = async ({
 	ack,
 	view,
-	client,
 }: AllMiddlewareArgs & SlackViewMiddlewareArgs) => {
 	await ack();
 
@@ -66,117 +35,19 @@ export const handleIncidentStartSubmission = async ({
 
 	const { title, severity, impact } = parsed.data;
 
-	// 1. 専用チャンネル作成
-	const baseName = await createChannelName(client, channelId);
-	let newChannelId: string | undefined;
-
-	try {
-		const createResult = await client.conversations.create({
-			name: baseName,
-		});
-		newChannelId = createResult.channel?.id;
-	} catch {
-		// 同名チャンネルが存在する場合、連番を付ける
-		for (let i = 2; i <= 10; i++) {
-			try {
-				const retryResult = await client.conversations.create({
-					name: `${baseName}-${i}`,
-				});
-				newChannelId = retryResult.channel?.id;
-				break;
-			} catch {
-				// この番号でのチャンネル作成に失敗した場合は、次の連番で再試行する
-			}
-		}
-	}
-
-	// 2. インシデント作成（専用チャンネルIDを優先、起票元チャンネルも記録）
-	const incident = await create(
-		{ title, severity, ...(impact !== undefined && { impact }) },
-		newChannelId ?? channelId,
+	await enqueueSlackTask({
+		kind: "incident_start",
 		channelId,
 		userId,
-	);
-
-	// 3. ランブック検索
-	let runbookSection = "";
-	try {
-		const allRunbooks = await listAllRunbooks();
-		const suggestions = searchRunbooks(allRunbooks, title);
-		if (suggestions.length > 0) {
-			const siteUrl = Resource.Site.url;
-			const list = suggestions
-				.map(
-					(r) =>
-						`• <${siteUrl}/runbooks/${r.id}|${r.title}>${r.tags.length > 0 ? ` [${r.tags.join(", ")}]` : ""}`,
-				)
-				.join("\n");
-			runbookSection = `\n\n📖 関連ランブック:\n${list}`;
-		}
-	} catch {
-		// ランブック検索失敗は無視
-	}
-
-	const severityLabel = {
-		SEV1: "SEV1 - 緊急",
-		SEV2: "SEV2 - 重大",
-		SEV3: "SEV3 - 軽微",
-	}[severity];
-	const summaryMessage =
-		`🚨 *インシデント開始*\n` +
-		`*タイトル:* ${title}\n` +
-		`*重要度:* ${severityLabel}\n` +
-		(impact ? `*影響範囲:* ${impact}\n` : "") +
-		`*起票者:* <@${userId}>\n` +
-		`*開始:* ${incident.startedAt}` +
-		runbookSection;
-
-	if (newChannelId) {
-		// 起票者を招待
-		try {
-			await client.conversations.invite({
-				channel: newChannelId,
-				users: userId,
-			});
-		} catch {
-			// すでに参加済みの場合など
-		}
-
-		// 専用チャンネルにサマリー投稿 + ピン留め
-		const posted = await client.chat.postMessage({
-			channel: newChannelId,
-			text: summaryMessage,
-		});
-
-		if (posted.ts) {
-			try {
-				await client.pins.add({
-					channel: newChannelId,
-					timestamp: posted.ts,
-				});
-			} catch {
-				// ピン留め失敗は無視
-			}
-		}
-
-		// 元チャンネルに通知
-		await client.chat.postMessage({
-			channel: channelId,
-			text: `🚨 インシデント「${title}」(${severityLabel}) の対応を <#${newChannelId}> で開始しました。`,
-		});
-	} else {
-		// チャンネル作成失敗時は元チャンネルに投稿
-		await client.chat.postMessage({
-			channel: channelId,
-			text: summaryMessage,
-		});
-	}
+		title,
+		severity,
+		...(impact !== undefined && { impact }),
+	});
 };
 
 export const handleIncidentEndSubmission = async ({
 	ack,
 	view,
-	client,
 }: AllMiddlewareArgs & SlackViewMiddlewareArgs) => {
 	await ack();
 
@@ -195,40 +66,17 @@ export const handleIncidentEndSubmission = async ({
 
 	const { resolution } = parsed.data;
 
-	const incident = await close(incidentId, resolution);
-	if (!incident) {
-		return;
-	}
-
-	const duration = incident.endedAt
-		? formatDuration(incident.startedAt, incident.endedAt)
-		: "不明";
-
-	const siteUrl = Resource.Site.url;
-
-	await client.chat.postMessage({
-		channel: channelId,
-		text:
-			`✅ *インシデント終了*\n` +
-			`*タイトル:* ${incident.title}\n` +
-			`*重要度:* ${incident.severity}\n` +
-			`*所要時間:* ${duration}\n` +
-			`*解決方法:* ${resolution}\n\n` +
-			`📝 <${siteUrl}/incidents/${incidentId}|ポストモーテムを作成する>`,
+	await enqueueSlackTask({
+		kind: "incident_end",
+		incidentId,
+		channelId,
+		resolution,
 	});
-};
-
-const STATUS_LABELS: Record<StatusUpdate["status"], string> = {
-	investigating: "調査中",
-	identified: "原因特定",
-	responding: "対応中",
-	recovering: "復旧確認中",
 };
 
 export const handleIncidentStatusSubmission = async ({
 	ack,
 	view,
-	client,
 }: AllMiddlewareArgs & SlackViewMiddlewareArgs) => {
 	await ack();
 
@@ -251,23 +99,12 @@ export const handleIncidentStatusSubmission = async ({
 
 	const { status, message } = parsed.data;
 
-	const updatedAt = new Date().toISOString();
-	await addStatusUpdate({
+	await enqueueSlackTask({
+		kind: "incident_status",
 		incidentId,
+		channelId,
+		userId,
 		status,
-		message,
-		updatedBy: userId,
-		updatedAt,
-	});
-
-	const label = STATUS_LABELS[status];
-	const messageText =
-		`🔄 *状態更新: ${label}*\n` +
-		`by <@${userId}>` +
-		(message ? `\n${message}` : "");
-
-	await client.chat.postMessage({
-		channel: channelId,
-		text: messageText,
+		...(message !== undefined && { message }),
 	});
 };
