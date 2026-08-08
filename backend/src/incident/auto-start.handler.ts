@@ -53,7 +53,15 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 		});
 	}
 
-	const { title, severity, impact, sourceChannelId, detectedBy } = parsed.data;
+	const {
+		title,
+		severity,
+		impact,
+		project,
+		externalImpact,
+		sourceChannelId,
+		detectedBy,
+	} = parsed.data;
 
 	await enqueueSlackTask({
 		kind: "incident_start",
@@ -62,6 +70,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 		title,
 		severity,
 		...(impact !== undefined && { impact }),
+		...(project !== undefined && { project }),
+		...(externalImpact !== undefined && { externalImpact }),
 	});
 
 	// 起票処理は非同期（SQS ワーカー）。受理のみ即応答する。

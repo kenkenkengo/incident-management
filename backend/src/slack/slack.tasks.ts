@@ -21,6 +21,8 @@ export type SlackTask =
 			readonly title: string;
 			readonly severity: CreateIncidentRequest["severity"];
 			readonly impact?: string;
+			readonly project?: string;
+			readonly externalImpact?: boolean;
 	  }
 	| {
 			readonly kind: "incident_end";

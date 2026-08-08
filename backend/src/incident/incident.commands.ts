@@ -87,6 +87,47 @@ export const handleIncidentCommand = async ({
 							},
 						},
 					},
+					{
+						type: "input",
+						block_id: "project_block",
+						label: { type: "plain_text", text: "案件・顧客" },
+						optional: true,
+						element: {
+							type: "plain_text_input",
+							action_id: "project",
+							placeholder: {
+								type: "plain_text",
+								text: "例: Dior パルファン案件",
+							},
+						},
+					},
+					{
+						type: "input",
+						block_id: "external_impact_block",
+						label: { type: "plain_text", text: "対外影響" },
+						optional: true,
+						element: {
+							type: "static_select",
+							action_id: "external_impact",
+							placeholder: {
+								type: "plain_text",
+								text: "顧客・対外への影響有無",
+							},
+							options: [
+								{
+									text: {
+										type: "plain_text",
+										text: "あり（顧客・対外に影響）",
+									},
+									value: "true",
+								},
+								{
+									text: { type: "plain_text", text: "なし（社内のみ）" },
+									value: "false",
+								},
+							],
+						},
+					},
 				],
 			},
 		});

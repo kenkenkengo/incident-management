@@ -56,6 +56,37 @@ const SEVERITY_LABELS: Record<
 	SEV3: "SEV3 - 軽微",
 };
 
+// 初動チェックリスト（P1-2）。障害時運用ルール（営業連絡→上長報告→役割分担→影響特定）を
+// 対応者が上から順にたどれるよう、専用チャンネルへ投稿しピン留めする。
+const INITIAL_CHECKLIST =
+	`📋 *初動チェックリスト*（対応者は上から順に。完了したらこのメッセージを編集して ☐→✅ に）\n` +
+	`1. ☐ 営業へ一次連絡（まず「事象確認・調査を行う」旨を伝える）\n` +
+	`2. ☐ 案件関係者・上長へ報告\n` +
+	`3. ☐ 役割分担（調査役／営業連絡役を立ち上げ。1人2役は避ける）\n` +
+	`4. ☐ 影響範囲の特定（対象・顧客・対外影響）\n` +
+	`5. ☐ \`/incident status\` で状況を随時更新`;
+
+const postInitialChecklist = async (
+	client: WebClient,
+	channelId: string,
+): Promise<void> => {
+	try {
+		const posted = await client.chat.postMessage({
+			channel: channelId,
+			text: INITIAL_CHECKLIST,
+		});
+		if (posted.ts) {
+			try {
+				await client.pins.add({ channel: channelId, timestamp: posted.ts });
+			} catch {
+				// ピン留め失敗は無視
+			}
+		}
+	} catch {
+		// 投稿失敗は無視（再配信暴走を防ぐ）
+	}
+};
+
 const notifyStakeholders = async (
 	client: WebClient,
 	severity: Extract<SlackTask, { kind: "incident_start" }>["severity"],
@@ -95,7 +126,16 @@ export const runIncidentStart = async (
 	client: WebClient,
 	task: Extract<SlackTask, { kind: "incident_start" }>,
 ): Promise<void> => {
-	const { channelId, userId, detectedBy, title, severity, impact } = task;
+	const {
+		channelId,
+		userId,
+		detectedBy,
+		title,
+		severity,
+		impact,
+		project,
+		externalImpact,
+	} = task;
 
 	// 冪等性ガード: SQS の再配信や二重送信で同じタスクが複数回実行されても、
 	// 同じ起票元にアクティブなインシデントが既にあれば新規チャンネルを作らない。
@@ -134,7 +174,13 @@ export const runIncidentStart = async (
 	// 自動起票（userId 不在）の場合は startedBy に検知ソースを記録する。
 	const startedBy = userId ?? `auto:${detectedBy ?? "monitoring"}`;
 	const incident = await create(
-		{ title, severity, ...(impact !== undefined && { impact }) },
+		{
+			title,
+			severity,
+			...(impact !== undefined && { impact }),
+			...(project !== undefined && { project }),
+			...(externalImpact !== undefined && { externalImpact }),
+		},
 		newChannelId ?? channelId,
 		channelId,
 		startedBy,
@@ -167,6 +213,8 @@ export const runIncidentStart = async (
 		`🚨 *インシデント開始*\n` +
 		`*タイトル:* ${title}\n` +
 		`*重要度:* ${severityLabel}\n` +
+		(project ? `*案件・顧客:* ${project}\n` : "") +
+		(externalImpact ? `*対外影響:* ⚠️ あり（顧客・対外に影響）\n` : "") +
 		(impact ? `*影響範囲:* ${impact}\n` : "") +
 		`*起票者:* ${reporter}\n` +
 		`*開始:* ${incident.startedAt}` +
@@ -206,6 +254,9 @@ export const runIncidentStart = async (
 		} catch {
 			// 専用チャンネルへの投稿失敗は無視
 		}
+
+		// 初動チェックリストを投稿・ピン留め（P1-2）
+		await postInitialChecklist(client, newChannelId);
 
 		// 元チャンネルに通知（Bot が起票元チャンネルに未参加だと not_in_channel に
 		// なるが、致命的ではないので握りつぶす。ここで throw すると再配信暴走の原因になる）
