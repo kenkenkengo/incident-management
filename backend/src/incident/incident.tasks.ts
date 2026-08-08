@@ -59,11 +59,12 @@ export const runIncidentStart = async (
 	client: WebClient,
 	task: Extract<SlackTask, { kind: "incident_start" }>,
 ): Promise<void> => {
-	const { channelId, userId, title, severity, impact } = task;
+	const { channelId, userId, detectedBy, title, severity, impact } = task;
 
 	// 冪等性ガード: SQS の再配信や二重送信で同じタスクが複数回実行されても、
 	// 同じ起票元にアクティブなインシデントが既にあれば新規チャンネルを作らない。
 	// （初回実行で create() 済みなら、以降の再配信はここで打ち切られる）
+	// 監視アラートからの自動起票が連続しても重複インシデントを作らない役割も兼ねる。
 	const existing = await findActiveBySourceChannel(channelId);
 	if (existing) {
 		return;
@@ -94,11 +95,13 @@ export const runIncidentStart = async (
 	}
 
 	// 2. インシデント作成（専用チャンネルIDを優先、起票元チャンネルも記録）
+	// 自動起票（userId 不在）の場合は startedBy に検知ソースを記録する。
+	const startedBy = userId ?? `auto:${detectedBy ?? "monitoring"}`;
 	const incident = await create(
 		{ title, severity, ...(impact !== undefined && { impact }) },
 		newChannelId ?? channelId,
 		channelId,
-		userId,
+		startedBy,
 	);
 
 	// 3. ランブック検索
@@ -121,24 +124,29 @@ export const runIncidentStart = async (
 	}
 
 	const severityLabel = SEVERITY_LABELS[severity];
+	const reporter = userId
+		? `<@${userId}>`
+		: `🤖 自動検知${detectedBy ? ` (${detectedBy})` : ""}`;
 	const summaryMessage =
 		`🚨 *インシデント開始*\n` +
 		`*タイトル:* ${title}\n` +
 		`*重要度:* ${severityLabel}\n` +
 		(impact ? `*影響範囲:* ${impact}\n` : "") +
-		`*起票者:* <@${userId}>\n` +
+		`*起票者:* ${reporter}\n` +
 		`*開始:* ${incident.startedAt}` +
 		runbookSection;
 
 	if (newChannelId) {
-		// 起票者を招待
-		try {
-			await client.conversations.invite({
-				channel: newChannelId,
-				users: userId,
-			});
-		} catch {
-			// すでに参加済みの場合など
+		// 起票者を招待（自動起票時は招待対象の人がいないためスキップ）
+		if (userId) {
+			try {
+				await client.conversations.invite({
+					channel: newChannelId,
+					users: userId,
+				});
+			} catch {
+				// すでに参加済みの場合など
+			}
 		}
 
 		// 専用チャンネルにサマリー投稿 + ピン留め

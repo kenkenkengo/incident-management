@@ -14,7 +14,10 @@ export type SlackTask =
 	| {
 			readonly kind: "incident_start";
 			readonly channelId: string;
-			readonly userId: string;
+			// Slack モーダル起票時は起票者の userId。監視アラートからの
+			// 自動起票時は userId 不在で、代わりに detectedBy に検知ソースが入る。
+			readonly userId?: string;
+			readonly detectedBy?: string;
 			readonly title: string;
 			readonly severity: CreateIncidentRequest["severity"];
 			readonly impact?: string;

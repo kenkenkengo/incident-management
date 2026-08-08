@@ -220,6 +220,7 @@ const addRoutes = (
 	appTable: sst.aws.Dynamo,
 	slackSecrets: { botToken: sst.Secret; signingSecret: sst.Secret },
 	slackTasks: sst.aws.Queue,
+	autoStartToken: sst.Secret,
 ) => {
 	const defaultLink = [userPool, client, site, appTable];
 
@@ -237,6 +238,13 @@ const addRoutes = (
 			slackSecrets.signingSecret,
 			slackTasks,
 		],
+	});
+
+	// 監視アラート等からの自動起票（P0-1）。JWT ではなく共有トークン認証で保護。
+	// 検証後は SlackTasks キュー経由でワーカーが起票する。
+	api.route("POST /incidents/auto-start", {
+		handler: "src/incident/auto-start.handler.handler",
+		link: [appTable, site, slackTasks, autoStartToken],
 	});
 
 	api.route(
@@ -317,6 +325,8 @@ export default $config({
 		const site = createSite(api, originVerifyToken); // 初期シークレットは固定なので originVerifyToken を渡す
 		const appTable = createAppTable();
 		const slackSecrets = createSlackSecrets();
+		// 自動起票エンドポイントの共有トークン（監視側と共有する）
+		const autoStartToken = new sst.Secret("AutoStartToken");
 
 		// Slack モーダル送信の重い後処理を非同期化するキュー + ワーカー
 		// 可視性タイムアウトはワーカーの timeout(60秒) 以上が必須。
@@ -354,6 +364,7 @@ export default $config({
 			appTable,
 			slackSecrets,
 			slackTasks,
+			autoStartToken,
 		);
 		// ローテーション設定（本番・dev共通）
 		if (!$dev) {
