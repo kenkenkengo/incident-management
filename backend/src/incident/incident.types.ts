@@ -5,6 +5,10 @@ export interface Incident {
 	readonly title: string;
 	readonly severity: "SEV1" | "SEV2" | "SEV3";
 	readonly impact?: string;
+	// 案件・顧客名（対外案件の識別用, P2-1）
+	readonly project?: string;
+	// 対外影響の有無（顧客・対外に影響するか, P2-1）
+	readonly externalImpact?: boolean;
 	readonly status: "active" | "closed";
 	readonly startedAt: string;
 	readonly endedAt?: string;
@@ -25,6 +29,8 @@ export interface CreateIncidentRequest {
 	readonly title: string;
 	readonly severity: "SEV1" | "SEV2" | "SEV3";
 	readonly impact?: string;
+	readonly project?: string;
+	readonly externalImpact?: boolean;
 }
 
 export interface Postmortem {

@@ -43,6 +43,8 @@ const toIncident = (item: Record<string, unknown>): Incident => ({
 	title: item.title as string,
 	severity: (item.severity as "SEV1" | "SEV2" | "SEV3") ?? "SEV3",
 	impact: item.impact as string | undefined,
+	project: item.project as string | undefined,
+	externalImpact: item.externalImpact as boolean | undefined,
 	resolution: item.resolution as string | undefined,
 	status: item.status as "active" | "closed",
 	startedAt: item.startedAt as string,
@@ -77,6 +79,10 @@ export const create = async (
 		startedBy,
 		severity: data.severity,
 		...(data.impact !== undefined && { impact: data.impact }),
+		...(data.project !== undefined && { project: data.project }),
+		...(data.externalImpact !== undefined && {
+			externalImpact: data.externalImpact,
+		}),
 	};
 	await client.send(
 		new PutCommand({

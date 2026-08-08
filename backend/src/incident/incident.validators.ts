@@ -4,6 +4,8 @@ export const createIncidentSchema = z.object({
 	title: z.string().min(1).max(200),
 	severity: z.enum(["SEV1", "SEV2", "SEV3"]),
 	impact: z.string().max(500).optional(),
+	project: z.string().max(200).optional(),
+	externalImpact: z.boolean().optional(),
 });
 
 export const closeIncidentSchema = z.object({
@@ -21,6 +23,8 @@ export const autoStartIncidentSchema = z.object({
 	title: z.string().min(1).max(200),
 	severity: z.enum(["SEV1", "SEV2", "SEV3"]),
 	impact: z.string().max(500).optional(),
+	project: z.string().max(200).optional(),
+	externalImpact: z.boolean().optional(),
 	sourceChannelId: z.string().min(1),
 	detectedBy: z.string().max(100).optional(),
 });
