@@ -1,15 +1,17 @@
 import { Resource } from "sst";
+import { getBacklogConfig } from "./incident.repository";
 
-// Backlog 連携（P1-3）。インシデント起票時に Backlog(snsnap) の TroubleReport
-// プロジェクトへ課題を自動作成する。認証は API キーをクエリに付与する方式。
+// Backlog 連携（P1-3）。インシデント起票時に Backlog(snsnap) の設定プロジェクトへ
+// 課題を自動作成する。認証は API キーをクエリに付与する方式。
+// 起票の有効/無効・起票先プロジェクトは DynamoDB の設定で切替（モード切替）。
 const SPACE = "snsnap.backlog.jp";
 const BASE = `https://${SPACE}/api/v2`;
-// プロジェクトは projectKey もしくは name を正規化して一致させる（"TroubleReport"）。
-const PROJECT_MATCH = "troublereport";
 
-// Warm な Lambda 実行間で解決結果を再利用する
-let cachedProjectId: number | undefined;
-let cachedIssueTypeId: number | undefined;
+// Warm な Lambda 実行間で解決結果を再利用する（projectKey 単位でキャッシュ）
+const projectCache = new Map<
+	string,
+	{ projectId: number; issueTypeId: number }
+>();
 
 const apiKey = (): string => Resource.BacklogApiKey.value;
 const norm = (s: string): string => s.toLowerCase().replace(/[\s_-]/g, "");
@@ -26,27 +28,26 @@ const getJson = async (path: string): Promise<any> => {
 	return res.json();
 };
 
-const resolveProjectId = async (): Promise<number> => {
-	if (cachedProjectId !== undefined) {
-		return cachedProjectId;
+// projectKey（例 "TR"）から projectId と使用する issueTypeId を解決する。
+// projectKey か name を正規化して一致させ、issueType は障害/trouble/bug 等を優先。
+const resolveProject = async (
+	projectKey: string,
+): Promise<{ projectId: number; issueTypeId: number }> => {
+	const cached = projectCache.get(projectKey);
+	if (cached) {
+		return cached;
 	}
+	const target = norm(projectKey);
 	const projects = await getJson("/projects");
 	const match = projects.find(
 		// biome-ignore lint/suspicious/noExplicitAny: 動的
-		(p: any) =>
-			norm(p.projectKey) === PROJECT_MATCH || norm(p.name) === PROJECT_MATCH,
+		(p: any) => norm(p.projectKey) === target || norm(p.name) === target,
 	);
 	if (!match) {
-		throw new Error("Backlog project 'TroubleReport' not found");
+		throw new Error(`Backlog project '${projectKey}' not found`);
 	}
-	cachedProjectId = match.id as number;
-	return cachedProjectId;
-};
+	const projectId = match.id as number;
 
-const resolveIssueTypeId = async (projectId: number): Promise<number> => {
-	if (cachedIssueTypeId !== undefined) {
-		return cachedIssueTypeId;
-	}
 	const types = await getJson(`/projects/${projectId}/issueTypes`);
 	const preferred =
 		// biome-ignore lint/suspicious/noExplicitAny: 動的
@@ -56,8 +57,10 @@ const resolveIssueTypeId = async (projectId: number): Promise<number> => {
 	if (!preferred) {
 		throw new Error("Backlog issue type not found");
 	}
-	cachedIssueTypeId = preferred.id as number;
-	return cachedIssueTypeId;
+
+	const resolved = { projectId, issueTypeId: preferred.id as number };
+	projectCache.set(projectKey, resolved);
+	return resolved;
 };
 
 export interface BacklogIssueInput {
@@ -81,8 +84,13 @@ export const createIncidentBacklogIssue = async (
 	input: BacklogIssueInput,
 ): Promise<{ readonly issueKey: string; readonly url: string } | null> => {
 	try {
-		const projectId = await resolveProjectId();
-		const issueTypeId = await resolveIssueTypeId(projectId);
+		// モード確認: 無効なら起票しない（テスト時など）。設定は DynamoDB で切替可能。
+		const config = await getBacklogConfig();
+		if (!config.enabled) {
+			return null;
+		}
+
+		const { projectId, issueTypeId } = await resolveProject(config.projectKey);
 		const summary = `[${input.severity}] ${input.title}`.slice(0, 255);
 		const description =
 			`インシデント自動起票（generosity-incident-management）\n` +
