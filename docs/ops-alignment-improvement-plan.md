@@ -9,6 +9,46 @@
 
 ---
 
+## 0. 実装状況（2026-08-08 時点）
+
+計画のうち実装可能な項目はすべて本番（`production`）へ反映・マージ済み。PR は #6〜#17。
+
+| 項目 | 状態 | PR | 備考 |
+|---|---|---|---|
+| P0-1 監視アラートからの自動起票 | ✅ 本番反映 | #10 | `POST /incidents/auto-start`（`x-auto-start-token` 認証） |
+| P0-2 重大度別の周知通知 | ✅ 本番反映（**要設定で有効化**） | #11 | `IncidentNotifyConfig`(JSON) 未設定なら発火しない |
+| P0-3 無更新エスカレーション | ✅ 本番反映（**要設定で有効化**） | #12 | 同上。リマインダーCronを15分粒度に変更 |
+| P1-1 役割アサイン/RACI | ⏸ 保留 | — | RACIボードの役割定義待ち |
+| P1-2 初動チェックリスト | ✅ 本番反映 | #13 | 起票時に専用chへ投稿・ピン留め |
+| P2-1 案件/顧客・対外影響フィールド | ✅ 本番反映 | #13 | 起票モーダル＋保存＋Slackサマリー表示 |
+| P1-3 Backlog連携 | ✅ 本番反映（**要有効化**） | #14 #16 #17 | TR(Trouble_Report)へ起票。モード切替＋必須CF自動補完。既定OFF |
+| P2-2 予防リマインド（site_watcher） | ⬜ 未着手 | — | site_watcher設定待ち。配線は主に P0-1 の利用 |
+
+**付随して実施した修正**（本計画の前段）:
+- #6 Slackモーダルの3秒タイムアウト＆SQS再配信暴走の解消（非同期ワーカー化・DLQ・冪等ガード）
+- #7 ポストモーテムからの `<reasoning>` 除去 / #8 タイムラインに時刻・担当者
+- #9 本計画ドキュメント追加 / #15 スクリプトのBiome整形
+
+### 有効化に必要な運用操作（未実施）
+- **P0-2 / P0-3**: 通知先を設定（例）
+  `npx sst secret set IncidentNotifyConfig '{"SEV1":{"channels":["C0B2W9TJ24D"],"mentions":["S08SPQM8D99"],"escalateAfterMinutes":30}}' --stage production` → `npm run deploy:prod`
+  （通知先chには Bot を招待）
+- **P1-3 Backlog**: `AWS_PROFILE=incident-prod node backend/scripts/set-backlog-mode.mjs on`（既定OFF。`off`/`status`/`on <projectKey>` で切替）
+
+### 主要な設定・値（メモ）
+- 自動起票エンドポイント: `https://jdei9mq01m.execute-api.ap-northeast-1.amazonaws.com/incidents/auto-start`（トークンは SST Secret `AutoStartToken`）
+- Backlog: スペース `snsnap.backlog.jp` / プロジェクト `TR`(Trouble_Report, id 193440) / 種別「トラブル」(1034495) / 必須CF「プロダクト名」(220195, 複数選択)→未一致時は「その他」(itemId 26)
+- APIキーは SST Secret `BacklogApiKey`（既存 `slack_to_backlog` のキーを流用）
+- 追加した SST Secret: `AutoStartToken` / `IncidentNotifyConfig` / `BacklogApiKey`
+- 追加スクリプト: `backend/scripts/set-backlog-mode.mjs`（Backlogモード切替）/ `close-all-incidents.mjs` / `delete-all-incidents.mjs`（運用）
+
+### 残タスク
+- P1-1: RACIボードの役割定義を反映して役割アサイン＋複数招待を実装
+- P2-2: site_watcher / ドメイン期限監視から `/incidents/auto-start` への配線
+- 検証: Backlog を `on` にして実起票が成功するか初回確認（必須CF補完の実地確認）
+
+---
+
 ## 1. 背景（Slack 調査サマリー）
 
 ### 1.1 本アプリの導入は全社方針として進行中
