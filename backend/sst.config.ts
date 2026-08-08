@@ -329,6 +329,8 @@ export default $config({
 		const autoStartToken = new sst.Secret("AutoStartToken");
 		// 重大度別の周知通知先（JSON, P0-2）。未設定なら通知なし。
 		const incidentNotifyConfig = new sst.Secret("IncidentNotifyConfig");
+		// Backlog API キー（P1-3）。起票時に TroubleReport プロジェクトへ課題作成。
+		const backlogApiKey = new sst.Secret("BacklogApiKey");
 
 		// Slack モーダル送信の重い後処理を非同期化するキュー + ワーカー
 		// 可視性タイムアウトはワーカーの timeout(60秒) 以上が必須。
@@ -348,7 +350,13 @@ export default $config({
 			{
 				handler: "src/slack/slack.worker.handler",
 				runtime: "nodejs22.x",
-				link: [appTable, site, slackSecrets.botToken, incidentNotifyConfig],
+				link: [
+					appTable,
+					site,
+					slackSecrets.botToken,
+					incidentNotifyConfig,
+					backlogApiKey,
+				],
 				timeout: "60 seconds",
 			},
 			// 1 メッセージ = 1 実行にして、失敗時の再処理で他タスクを
