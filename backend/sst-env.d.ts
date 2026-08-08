@@ -30,6 +30,14 @@ declare module "sst" {
       "type": "sst.sst.Secret"
       "value": string
     }
+    "SlackTasks": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "SlackTasksDLQ": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
     "TokenRotation": {
       "name": string
       "type": "sst.aws.Function"

@@ -219,6 +219,7 @@ const addRoutes = (
 	site: sst.aws.StaticSite,
 	appTable: sst.aws.Dynamo,
 	slackSecrets: { botToken: sst.Secret; signingSecret: sst.Secret },
+	slackTasks: sst.aws.Queue,
 ) => {
 	const defaultLink = [userPool, client, site, appTable];
 
@@ -226,9 +227,16 @@ const addRoutes = (
 
 	// Slack イベントは API Gateway を直接叩く（CloudFront 非経由）
 	// 認証は AwsLambdaReceiver の Slack 署名検証（signingSecret）で保護される
+	// モーダル送信の重い後処理は SlackTasks キュー経由で slack.worker に逃がす
 	api.route("POST /slack/events", {
 		handler: "src/slack/slack.handler.handler",
-		link: [appTable, site, slackSecrets.botToken, slackSecrets.signingSecret],
+		link: [
+			appTable,
+			site,
+			slackSecrets.botToken,
+			slackSecrets.signingSecret,
+			slackTasks,
+		],
 	});
 
 	api.route(
@@ -309,6 +317,33 @@ export default $config({
 		const site = createSite(api, originVerifyToken); // 初期シークレットは固定なので originVerifyToken を渡す
 		const appTable = createAppTable();
 		const slackSecrets = createSlackSecrets();
+
+		// Slack モーダル送信の重い後処理を非同期化するキュー + ワーカー
+		// 可視性タイムアウトはワーカーの timeout(60秒) 以上が必須。
+		// AWS 推奨に従い関数タイムアウトの 6 倍(360秒)を設定する。
+		// DLQ を付け、3 回失敗したら DLQ に退避させる（無限再配信＝チャンネル
+		// 量産の暴走を防ぐ）。
+		const slackTasksDlq = new sst.aws.Queue("SlackTasksDLQ");
+		const slackTasks = new sst.aws.Queue("SlackTasks", {
+			dlq: { queue: slackTasksDlq.arn, retry: 3 },
+			transform: {
+				queue: {
+					visibilityTimeoutSeconds: 360,
+				},
+			},
+		});
+		slackTasks.subscribe(
+			{
+				handler: "src/slack/slack.worker.handler",
+				runtime: "nodejs22.x",
+				link: [appTable, site, slackSecrets.botToken],
+				timeout: "60 seconds",
+			},
+			// 1 メッセージ = 1 実行にして、失敗時の再処理で他タスクを
+			// 巻き込まない（チャンネル二重作成などの副作用を防ぐ）
+			{ batch: { size: 1 } },
+		);
+
 		addRoutes(
 			api,
 			cognitoAuthorizer,
@@ -318,6 +353,7 @@ export default $config({
 			site,
 			appTable,
 			slackSecrets,
+			slackTasks,
 		);
 		// ローテーション設定（本番・dev共通）
 		if (!$dev) {

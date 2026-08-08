@@ -1,0 +1,47 @@
+# Slack App Manifest — Generosity Incident Management
+# 使い方: https://api.slack.com/apps → "Create New App" → "From an app manifest"
+#          → ワークスペース選択 → YAML を貼り付け
+#
+# 注意: Event Subscriptions は作成時に url_verification(署名付きチャレンジ) が走るため、
+#       先にバックエンドへ新しい Signing Secret を反映(sst secret set + deploy)しておく必要がある。
+#       未反映のまま作成すると Events の検証だけ失敗するので、その場合は
+#       シークレット反映後に Event Subscriptions 画面で Retry すればよい。
+display_information:
+  name: Incident Management
+  description: Slack 連携インシデント管理 Bot（起票・記録・状態更新・終了）
+  background_color: "#4a154b"
+features:
+  bot_user:
+    display_name: incident-bot
+    always_online: true
+  slash_commands:
+    - command: /incident
+      url: https://jdei9mq01m.execute-api.ap-northeast-1.amazonaws.com/slack/events
+      description: インシデントの起票・状態更新・終了
+      usage_hint: start | status | end | help
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - commands # /incident スラッシュコマンド
+      - chat:write # メッセージ投稿
+      - channels:manage # パブリック専用チャンネルの作成・招待
+      - channels:read # 起票元チャンネル名の取得(conversations.info) ← 今回の unknown 対策
+      - channels:history # 専用チャンネルのメッセージ受信・記録
+      - groups:write # プライベートチャンネルからの起票に対応する場合
+      - groups:read # プライベート起票元チャンネル名の取得
+      - groups:history # プライベート専用チャンネルの記録(専用chをprivateにする場合)
+      - pins:write # サマリーのピン留め
+      - users:read # 投稿者名の解決(users.info)
+settings:
+  event_subscriptions:
+    request_url: https://jdei9mq01m.execute-api.ap-northeast-1.amazonaws.com/slack/events
+    bot_events:
+      - message.channels # パブリック専用チャンネルでの発言を記録
+      - message.groups # プライベート専用チャンネルでの発言を記録(必要な場合)
+  interactivity:
+    is_enabled: true # モーダル(view_submission)受信に必須
+    request_url: https://jdei9mq01m.execute-api.ap-northeast-1.amazonaws.com/slack/events
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

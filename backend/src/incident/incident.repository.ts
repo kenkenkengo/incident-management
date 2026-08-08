@@ -221,7 +221,7 @@ export const listClosedWithoutPostmortem = async (
 	limit = 50,
 ): Promise<readonly Incident[]> => {
 	const incidentsWithoutPostmortem: Incident[] = [];
-	let lastEvaluatedKey: Record<string, unknown> | undefined = undefined;
+	let lastEvaluatedKey: Record<string, unknown> | undefined;
 
 	while (incidentsWithoutPostmortem.length < limit) {
 		const result = await client.send(
