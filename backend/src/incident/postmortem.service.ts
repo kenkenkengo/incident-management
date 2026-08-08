@@ -191,5 +191,6 @@ export const generatePostmortem = async (
 
 	const response = await client.send(command);
 	const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-	return responseBody.choices[0].message.content;
+	// モデルが付与する <reasoning>...</reasoning> の思考ログを除去して返す
+	return stripReasoning(responseBody.choices[0].message.content);
 };
