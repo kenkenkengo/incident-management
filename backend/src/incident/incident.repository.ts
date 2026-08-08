@@ -519,3 +519,37 @@ export const saveReminder = async (
 		}),
 	);
 };
+
+// Backlog 連携のモード設定（P1-3 モード切替）。
+// DynamoDB の単一設定アイテムで on/off・起票先プロジェクトを保持し、デプロイ不要で切替可能。
+// 未設定時は enabled=false（安全側=起票しない）。
+export interface BacklogConfig {
+	readonly enabled: boolean;
+	readonly projectKey: string;
+}
+
+const BACKLOG_CONFIG_KEY = { pk: "CONFIG", sk: "BACKLOG" };
+
+export const getBacklogConfig = async (): Promise<BacklogConfig> => {
+	const result = await client.send(
+		new GetCommand({ TableName: TABLE_NAME, Key: BACKLOG_CONFIG_KEY }),
+	);
+	const item = result.Item;
+	return {
+		enabled: item?.enabled === true,
+		projectKey: (item?.projectKey as string) ?? "TR",
+	};
+};
+
+export const setBacklogConfig = async (cfg: BacklogConfig): Promise<void> => {
+	await client.send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...BACKLOG_CONFIG_KEY,
+				enabled: cfg.enabled,
+				projectKey: cfg.projectKey,
+			},
+		}),
+	);
+};
