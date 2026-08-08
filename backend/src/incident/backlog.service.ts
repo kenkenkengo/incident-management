@@ -7,11 +7,19 @@ import { getBacklogConfig } from "./incident.repository";
 const SPACE = "snsnap.backlog.jp";
 const BASE = `https://${SPACE}/api/v2`;
 
+interface RequiredField {
+	readonly id: number;
+	readonly typeId: number;
+	readonly items: readonly { readonly id: number; readonly name: string }[];
+}
+interface ResolvedProject {
+	readonly projectId: number;
+	readonly issueTypeId: number;
+	readonly requiredFields: readonly RequiredField[];
+}
+
 // Warm な Lambda 実行間で解決結果を再利用する（projectKey 単位でキャッシュ）
-const projectCache = new Map<
-	string,
-	{ projectId: number; issueTypeId: number }
->();
+const projectCache = new Map<string, ResolvedProject>();
 
 const apiKey = (): string => Resource.BacklogApiKey.value;
 const norm = (s: string): string => s.toLowerCase().replace(/[\s_-]/g, "");
@@ -28,11 +36,8 @@ const getJson = async (path: string): Promise<any> => {
 	return res.json();
 };
 
-// projectKey（例 "TR"）から projectId と使用する issueTypeId を解決する。
-// projectKey か name を正規化して一致させ、issueType は障害/trouble/bug 等を優先。
-const resolveProject = async (
-	projectKey: string,
-): Promise<{ projectId: number; issueTypeId: number }> => {
+// projectKey（例 "TR"）から projectId・使用する issueTypeId・必須カスタムフィールドを解決する。
+const resolveProject = async (projectKey: string): Promise<ResolvedProject> => {
 	const cached = projectCache.get(projectKey);
 	if (cached) {
 		return cached;
@@ -52,15 +57,98 @@ const resolveProject = async (
 	const preferred =
 		// biome-ignore lint/suspicious/noExplicitAny: 動的
 		types.find((t: any) =>
-			/障害|trouble|インシデント|incident|bug/i.test(t.name),
+			/トラブル|障害|インシデント|incident|trouble/i.test(t.name),
 		) ?? types[0];
 	if (!preferred) {
 		throw new Error("Backlog issue type not found");
 	}
+	const issueTypeId = preferred.id as number;
 
-	const resolved = { projectId, issueTypeId: preferred.id as number };
+	// 必須カスタムフィールド（起票時に値が無いと 400 になる）を収集
+	let requiredFields: RequiredField[] = [];
+	try {
+		const fields = await getJson(`/projects/${projectId}/customFields`);
+		requiredFields = fields
+			// biome-ignore lint/suspicious/noExplicitAny: 動的
+			.filter((f: any) => {
+				const applicable =
+					!f.applicableIssueTypes ||
+					f.applicableIssueTypes.length === 0 ||
+					f.applicableIssueTypes.includes(issueTypeId);
+				return f.required === true && applicable;
+			})
+			// biome-ignore lint/suspicious/noExplicitAny: 動的
+			.map((f: any) => ({
+				id: f.id as number,
+				typeId: f.typeId as number,
+				// biome-ignore lint/suspicious/noExplicitAny: 動的
+				items: (f.items ?? []).map((i: any) => ({
+					id: i.id as number,
+					name: i.name as string,
+				})),
+			}));
+	} catch {
+		// カスタムフィールド取得失敗時は空扱い（起票を試行）
+	}
+
+	const resolved: ResolvedProject = { projectId, issueTypeId, requiredFields };
 	projectCache.set(projectKey, resolved);
 	return resolved;
+};
+
+// リスト系カスタムフィールドの選択肢から、案件テキストに一致 → フォールバック名 → 先頭、で1件選ぶ
+const pickListItem = (
+	field: RequiredField,
+	hint: string | undefined,
+): number | undefined => {
+	if (field.items.length === 0) {
+		return undefined;
+	}
+	if (hint) {
+		const h = norm(hint);
+		const matched = field.items.find(
+			(i) => norm(i.name).includes(h) || h.includes(norm(i.name)),
+		);
+		if (matched) {
+			return matched.id;
+		}
+	}
+	const fallback = field.items.find((i) =>
+		/その他|共通|未分類|該当なし|なし|不明|other/i.test(i.name),
+	);
+	return (fallback ?? field.items[0]).id;
+};
+
+// 必須カスタムフィールドを URLSearchParams に補完する
+const appendRequiredFields = (
+	body: URLSearchParams,
+	fields: readonly RequiredField[],
+	hint: string | undefined,
+): void => {
+	for (const f of fields) {
+		const key = `customField_${f.id}`;
+		switch (f.typeId) {
+			case 5: // 単一選択リスト
+			case 6: // 複数選択リスト
+			case 7: // チェックボックス
+			case 8: {
+				// ラジオ
+				const itemId = pickListItem(f, hint);
+				if (itemId !== undefined) {
+					body.append(key, String(itemId));
+				}
+				break;
+			}
+			case 3: // 数値
+				body.append(key, "0");
+				break;
+			case 4: // 日付
+				body.append(key, new Date().toISOString().slice(0, 10));
+				break;
+			default: // 1:文字列 / 2:文章 など
+				body.append(key, hint ?? "-");
+		}
+	}
 };
 
 export interface BacklogIssueInput {
@@ -77,8 +165,8 @@ const priorityForSeverity = (severity: string): number =>
 	severity === "SEV1" ? 2 : severity === "SEV2" ? 3 : 4;
 
 /**
- * インシデント起票時に Backlog 課題を作成する。失敗しても null を返すだけで
- * 起票フロー自体は止めない（Backlog 側の必須カスタムフィールド等で失敗しうるため）。
+ * インシデント起票時に Backlog 課題を作成する。モード無効なら起票しない。
+ * 失敗しても null を返すだけで起票フロー自体は止めない。
  */
 export const createIncidentBacklogIssue = async (
 	input: BacklogIssueInput,
@@ -90,7 +178,9 @@ export const createIncidentBacklogIssue = async (
 			return null;
 		}
 
-		const { projectId, issueTypeId } = await resolveProject(config.projectKey);
+		const { projectId, issueTypeId, requiredFields } = await resolveProject(
+			config.projectKey,
+		);
 		const summary = `[${input.severity}] ${input.title}`.slice(0, 255);
 		const description =
 			`インシデント自動起票（generosity-incident-management）\n` +
@@ -107,6 +197,8 @@ export const createIncidentBacklogIssue = async (
 			priorityId: String(priorityForSeverity(input.severity)),
 			description,
 		});
+		// 必須カスタムフィールド（例: TR の「プロダクト名」）を自動補完
+		appendRequiredFields(body, requiredFields, input.project ?? input.title);
 
 		const res = await fetch(
 			`${BASE}/issues?apiKey=${encodeURIComponent(apiKey())}`,
