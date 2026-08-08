@@ -10,6 +10,7 @@ import {
 	findActiveBySourceChannel,
 } from "./incident.repository";
 import type { StatusUpdate } from "./incident.types";
+import { formatMention, parseNotifyConfig } from "./notify.config";
 
 const formatDuration = (startedAt: string, endedAt: string): string => {
 	const diff = new Date(endedAt).getTime() - new Date(startedAt).getTime();
@@ -54,33 +55,6 @@ const SEVERITY_LABELS: Record<
 	SEV2: "SEV2 - 重大",
 	SEV3: "SEV3 - 軽微",
 };
-
-// 重大度別の周知先設定（P0-2）。SST Secret IncidentNotifyConfig に JSON で外部設定する。
-// 例: {"SEV1":{"channels":["C0B2W9TJ24D"],"mentions":["S08SPQM8D99","U01J1HU9HP1"]}}
-// 未設定・不正な場合は通知しない（無害）。
-interface NotifyTarget {
-	readonly channels?: readonly string[];
-	readonly mentions?: readonly string[];
-}
-
-const parseNotifyConfig = (): Record<string, NotifyTarget> => {
-	try {
-		const raw = Resource.IncidentNotifyConfig.value;
-		if (!raw || !raw.trim()) {
-			return {};
-		}
-		const parsed: unknown = JSON.parse(raw);
-		return typeof parsed === "object" && parsed !== null
-			? (parsed as Record<string, NotifyTarget>)
-			: {};
-	} catch {
-		return {};
-	}
-};
-
-// メンションID整形: サブチーム(S...)は <!subteam^ID>、それ以外(U.../W...)は <@ID>
-const formatMention = (id: string): string =>
-	id.startsWith("S") ? `<!subteam^${id}>` : `<@${id}>`;
 
 const notifyStakeholders = async (
 	client: WebClient,
