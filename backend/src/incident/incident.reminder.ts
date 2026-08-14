@@ -19,7 +19,7 @@ const HOURS_2 = 2 * 60 * 60 * 1000;
 const HOURS_24 = 24 * 60 * 60 * 1000;
 
 // 無更新が閾値を超えたインシデントをエスカレーション通知する（P0-3）。
-// 通知先・閾値は IncidentNotifyConfig の重大度別設定に従う。未設定なら何もしない。
+// 通知先・閾値は IncidentNotifyConfig（全インシデント共通）に従う。未設定なら何もしない。
 const escalate = async (
 	slackClient: WebClient,
 	incident: Incident,
@@ -33,7 +33,7 @@ const escalate = async (
 			? cfg.escalateChannels
 			: [incident.channelId];
 	const text =
-		`⛔️ *エスカレーション (${incident.severity})*\n` +
+		`⛔️ *エスカレーション*\n` +
 		`*${incident.title}* が ${cfg.escalateAfterMinutes}分以上更新されていません。対応状況を確認してください。\n` +
 		`対応チャンネル: <#${incident.channelId}>` +
 		(mentions ? `\n${mentions}` : "");
@@ -108,10 +108,10 @@ export const handler = async () => {
 			await saveReminder(incident.id, "24h");
 		}
 
-		// エスカレーション（P0-3）: 重大度別の閾値を無更新で超えたら通知
-		const cfg = parseNotifyConfig()[incident.severity];
+		// エスカレーション（P0-3）: 閾値を無更新で超えたら通知（全インシデント共通設定）
+		const cfg = parseNotifyConfig();
 		if (
-			cfg?.escalateAfterMinutes &&
+			cfg.escalateAfterMinutes &&
 			now - lastActivityAt >= cfg.escalateAfterMinutes * 60 * 1000 &&
 			!(await hasReminder(incident.id, "escalation"))
 		) {

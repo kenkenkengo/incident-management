@@ -55,7 +55,6 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 
 	const {
 		title,
-		severity,
 		impact,
 		project,
 		externalImpact,
@@ -68,7 +67,6 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 		channelId: sourceChannelId,
 		detectedBy: detectedBy ?? "monitoring",
 		title,
-		severity,
 		...(impact !== undefined && { impact }),
 		...(project !== undefined && { project }),
 		...(externalImpact !== undefined && { externalImpact }),

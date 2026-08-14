@@ -49,7 +49,6 @@ const buildPrompt = (
 これをもとにポストモーテム（振り返り文書）をMarkdown形式で生成してください。
 
 ## インシデント情報
-- 重大度: ${incident.severity}
 - 影響範囲: ${incident.impact ?? "未記載"}
 - 解決策: ${incident.resolution ?? "未記載"}
 - 発生期間: ${incident.startedAt} 〜 ${incident.endedAt ?? "対応中"}（${computeDuration(incident.startedAt, incident.endedAt)}）
@@ -252,7 +251,6 @@ ${jstDateTime(incident.startedAt)}
 （再発防止策）
 
 ## 参考情報
-- 重大度: ${incident.severity}
 - 影響範囲(入力): ${incident.impact ?? "未記載"}
 - 解決方法(入力): ${incident.resolution || "未記載"}
 - 発生: ${jstDateTime(incident.startedAt)} 〜 終了: ${

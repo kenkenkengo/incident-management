@@ -86,7 +86,6 @@ const createIncidentFromMessage = async (
 		channelId: channel,
 		userId,
 		title,
-		severity: "SEV2",
 		sourceText: msg.text.slice(0, 2000),
 		...(msg.permalink && { sourceLink: msg.permalink }),
 	});

@@ -41,7 +41,6 @@ const toIncident = (item: Record<string, unknown>): Incident => ({
 	sourceChannelId:
 		(item.sourceChannelId as string) ?? (item.channelId as string),
 	title: item.title as string,
-	severity: (item.severity as "SEV1" | "SEV2" | "SEV3") ?? "SEV3",
 	impact: item.impact as string | undefined,
 	project: item.project as string | undefined,
 	externalImpact: item.externalImpact as boolean | undefined,
@@ -78,7 +77,6 @@ export const create = async (
 		status: "active",
 		startedAt,
 		startedBy,
-		severity: data.severity,
 		...(data.impact !== undefined && { impact: data.impact }),
 		...(data.project !== undefined && { project: data.project }),
 		...(data.externalImpact !== undefined && {

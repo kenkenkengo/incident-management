@@ -17,15 +17,6 @@ const currentTime = ref(
 	new Date().toLocaleTimeString("ja-JP", { hour12: false }),
 );
 
-const severityLabel = (severity: string) => {
-	const labels: Record<string, string> = {
-		SEV1: "SEV1",
-		SEV2: "SEV2",
-		SEV3: "SEV3",
-	};
-	return labels[severity] ?? severity;
-};
-
 const elapsedTime = (startedAt: string) => {
 	const diffMs = Date.now() - new Date(startedAt).getTime();
 	const totalMinutes = Math.floor(diffMs / 60000);
@@ -91,7 +82,6 @@ const goToNewRunbook = () => router.push({ name: "runbook-new" });
           class="warning-banner-item"
           @click="router.push({ name: 'incident-detail', params: { id: incident.id } })"
         >
-          <span :class="['severity-badge', incident.severity.toLowerCase()]">{{ severityLabel(incident.severity) }}</span>
           <span class="warning-item-title">{{ incident.title }}</span>
           <span class="arrow">→</span>
         </div>
@@ -163,7 +153,6 @@ const goToNewRunbook = () => router.push({ name: "runbook-new" });
           @click="router.push({ name: 'incident-detail', params: { id: incident.id } })"
         >
           <div class="incident-row-left">
-            <span :class="['severity-badge', incident.severity.toLowerCase()]">{{ severityLabel(incident.severity) }}</span>
             <div>
               <div class="incident-title">{{ incident.title }}</div>
               <div class="incident-meta mono text-xs text-muted">
@@ -544,37 +533,6 @@ const goToNewRunbook = () => router.push({ name: "runbook-new" });
   align-items: center;
   gap: var(--space-md);
   flex-shrink: 0;
-}
-
-/* Severity badges */
-.severity-badge {
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 2px 8px;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-
-.severity-badge.sev1 {
-  color: var(--status-danger);
-  background: var(--status-danger-dim);
-  border: 1px solid rgba(192, 55, 55, 0.25);
-}
-
-.severity-badge.sev2 {
-  color: var(--status-warning, #c78a1e);
-  background: rgba(199, 138, 30, 0.1);
-  border: 1px solid rgba(199, 138, 30, 0.25);
-}
-
-.severity-badge.sev3 {
-  color: var(--text-secondary);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
 }
 
 /* Status badge */

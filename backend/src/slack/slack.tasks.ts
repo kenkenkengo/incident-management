@@ -1,6 +1,5 @@
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { Resource } from "sst";
-import type { CreateIncidentRequest } from "../incident/incident.types";
 
 /**
  * Slack モーダル送信後に非同期で処理するタスク。
@@ -16,7 +15,6 @@ export type SlackTask =
 			readonly userId?: string;
 			readonly detectedBy?: string;
 			readonly title: string;
-			readonly severity: CreateIncidentRequest["severity"];
 			readonly impact?: string;
 			readonly project?: string;
 			readonly externalImpact?: boolean;
