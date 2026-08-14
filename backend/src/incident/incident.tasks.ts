@@ -14,7 +14,10 @@ import {
 	setBacklogIssueKey,
 } from "./incident.repository";
 import { formatMention, parseNotifyConfig } from "./notify.config";
-import { generateTroubleReport } from "./postmortem.service";
+import {
+	generateIncidentTitle,
+	generateTroubleReport,
+} from "./postmortem.service";
 
 const formatDuration = (startedAt: string, endedAt: string): string => {
 	const diff = new Date(endedAt).getTime() - new Date(startedAt).getTime();
@@ -96,7 +99,7 @@ export const runIncidentStart = async (
 		channelId,
 		userId,
 		detectedBy,
-		title,
+		title: rawTitle,
 		severity,
 		impact,
 		project,
@@ -112,6 +115,18 @@ export const runIncidentStart = async (
 	const existing = await findActiveBySourceChannel(channelId);
 	if (existing) {
 		return;
+	}
+
+	// リアクション起票（元メッセージあり）のときは AI で簡潔なタイトルを生成する。
+	// /incident の手入力タイトルはそのまま使う。
+	let title = rawTitle;
+	if (sourceText) {
+		try {
+			const generated = await generateIncidentTitle(sourceText);
+			if (generated) title = generated;
+		} catch {
+			// 生成失敗時は元テキストをそのまま使う
+		}
 	}
 
 	// 1. 専用チャンネル作成
@@ -309,7 +324,7 @@ export const runIncidentEnd = async (
 ): Promise<void> => {
 	const { incidentId, channelId, resolution } = task;
 
-	const incident = await close(incidentId, resolution);
+	const incident = await close(incidentId, resolution ?? "");
 	if (!incident) {
 		return;
 	}
@@ -331,7 +346,7 @@ export const runIncidentEnd = async (
 		: "不明";
 	const text = report
 		? `${report}\n\n${pmLink}`
-		: `✅ *インシデント終了* — ${incident.title}\n*所要時間:* ${duration}\n*解決方法:* ${resolution}\n\n${pmLink}`;
+		: `✅ *インシデント終了* — ${incident.title}\n*所要時間:* ${duration}${resolution ? `\n*解決方法:* ${resolution}` : ""}\n\n${pmLink}`;
 
 	// 投稿失敗で throw すると SQS 再配信ループになるため握りつぶす
 	try {

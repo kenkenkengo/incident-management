@@ -6,6 +6,7 @@ import {
 	findActiveByChannel,
 	findActiveBySourceChannel,
 } from "../incident/incident.repository";
+import { enqueueSlackTask } from "../slack/slack.tasks";
 
 export const handleIncidentCommand = async ({
 	command,
@@ -64,49 +65,20 @@ export const handleIncidentCommand = async ({
 			return;
 		}
 
-		await client.views.open({
-			trigger_id: command.trigger_id,
-			view: {
-				type: "modal",
-				callback_id: "incident_end_modal",
-				private_metadata: JSON.stringify({
-					incidentId: active.id,
-					channelId: command.channel_id,
-				}),
-				title: { type: "plain_text", text: "インシデント終了" },
-				submit: { type: "plain_text", text: "終了する" },
-				blocks: [
-					{
-						type: "section",
-						text: {
-							type: "mrkdwn",
-							text: `*${active.title}* を終了します`,
-						},
-					},
-					{
-						type: "input",
-						block_id: "resolution_block",
-						label: { type: "plain_text", text: "解決方法" },
-						element: {
-							type: "plain_text_input",
-							action_id: "resolution",
-							multiline: true,
-							placeholder: {
-								type: "plain_text",
-								text: "例: APIサーバー再起動 + コネクションプール設定を max=100 に変更",
-							},
-						},
-					},
-				],
-			},
+		// 解決方法の入力は求めず、即クローズ（トラブル報告は会話から自動生成される）
+		await enqueueSlackTask({
+			kind: "incident_end",
+			incidentId: active.id,
+			channelId: command.channel_id,
 		});
+		await respond(`*${active.title}* をクローズしています…`);
 		return;
 	}
 
 	await respond(
 		"📋 `/incident` コマンド一覧\n\n" +
 			"`/incident`（または `/incident start`）→ インシデントを起票（モーダルが開きます）\n" +
-			"`/incident end` → インシデントをクローズ（モーダルが開きます）\n" +
+			"`/incident end` → インシデントを即クローズ（解決方法の入力は不要）\n" +
 			"`/incident help` → このヘルプを表示\n\n" +
 			"※ 残したい発言には :memo: を付けると Backlog 課題に追記されます。",
 	);

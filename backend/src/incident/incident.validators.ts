@@ -8,10 +8,6 @@ export const createIncidentSchema = z.object({
 	externalImpact: z.boolean().optional(),
 });
 
-export const closeIncidentSchema = z.object({
-	resolution: z.string().min(1).max(2000),
-});
-
 // 監視アラート等からの自動起票ペイロード。
 // sourceChannelId は起票元となる Slack チャンネル（専用ch名・通知先の基準）。
 export const autoStartIncidentSchema = z.object({

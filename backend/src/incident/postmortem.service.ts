@@ -254,7 +254,7 @@ ${jstDateTime(incident.startedAt)}
 ## 参考情報
 - 重大度: ${incident.severity}
 - 影響範囲(入力): ${incident.impact ?? "未記載"}
-- 解決方法(入力): ${incident.resolution ?? "未記載"}
+- 解決方法(入力): ${incident.resolution || "未記載"}
 - 発生: ${jstDateTime(incident.startedAt)} 〜 終了: ${
 		incident.endedAt ? jstDateTime(incident.endedAt) : "対応中"
 	}
@@ -285,4 +285,44 @@ ${messageLog || "（記録なし）"}`;
 	const response = await client.send(command);
 	const responseBody = JSON.parse(new TextDecoder().decode(response.body));
 	return stripReasoning(responseBody.choices?.[0]?.message?.content ?? "");
+};
+
+/**
+ * リアクション起票の元メッセージから、簡潔なインシデントタイトルを生成する。
+ * 失敗時は空文字を返す（呼び出し側で元テキストにフォールバック）。
+ */
+export const generateIncidentTitle = async (text: string): Promise<string> => {
+	const requestBody = {
+		messages: [
+			{
+				role: "system",
+				content:
+					"あなたは障害対応の記録を支援するアシスタントです。指示に厳密に従い、タイトルのみを1行で出力します。",
+			},
+			{
+				role: "user",
+				content:
+					`次のSlackメッセージは障害の一次報告です。インシデントのタイトルを日本語で40字以内・簡潔な体言止めで作成してください。` +
+					`記号や引用符・接頭辞は付けず、タイトルのみを1行で出力してください。\n\nメッセージ:\n${text.slice(0, 1000)}`,
+			},
+		],
+		max_completion_tokens: 1024,
+		temperature: 0.2,
+	};
+
+	const command = new InvokeModelCommand({
+		modelId: MODEL_ID,
+		body: JSON.stringify(requestBody),
+		contentType: "application/json",
+		accept: "application/json",
+	});
+
+	const response = await client.send(command);
+	const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+	const raw = stripReasoning(responseBody.choices?.[0]?.message?.content ?? "");
+	return raw
+		.split("\n")[0]
+		.replace(/^["'「『【]+|["'」』】]+$/g, "")
+		.trim()
+		.slice(0, 100);
 };
