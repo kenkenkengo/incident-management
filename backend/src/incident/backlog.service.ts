@@ -226,3 +226,36 @@ export const createIncidentBacklogIssue = async (
 		return null;
 	}
 };
+
+/**
+ * 既存の Backlog 課題にコメントを追記する（:memo: 追記に使用）。
+ * Backlog モードが無効なら追記しない。成否を返す。
+ */
+export const addBacklogComment = async (
+	issueKey: string,
+	content: string,
+): Promise<boolean> => {
+	try {
+		const config = await getBacklogConfig();
+		if (!config.enabled) {
+			return false;
+		}
+		const body = new URLSearchParams({ content: content.slice(0, 10000) });
+		const res = await fetch(
+			`${BASE}/issues/${encodeURIComponent(issueKey)}/comments?apiKey=${encodeURIComponent(apiKey())}`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/x-www-form-urlencoded" },
+				body: body.toString(),
+			},
+		);
+		if (!res.ok) {
+			console.error("Backlog add comment failed", res.status, await res.text());
+			return false;
+		}
+		return true;
+	} catch (error) {
+		console.error("Backlog add comment error", error);
+		return false;
+	}
+};

@@ -14,6 +14,8 @@ export interface Incident {
 	readonly endedAt?: string;
 	readonly startedBy: string;
 	readonly resolution?: string;
+	// 連携済み Backlog 課題キー（起票時に作成した場合。:memo: 追記に使用）
+	readonly backlogIssueKey?: string;
 }
 
 export interface IncidentMessage {
