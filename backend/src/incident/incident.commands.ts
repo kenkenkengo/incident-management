@@ -16,7 +16,8 @@ export const handleIncidentCommand = async ({
 	await ack();
 	const subcommand = command.text.trim().split(/\s+/)[0];
 
-	if (subcommand === "start") {
+	// 引数なしの `/incident` でも起票を開始できるようにする（`/incident start` と同等）
+	if (subcommand === "start" || subcommand === "") {
 		const existing = await findActiveBySourceChannel(command.channel_id);
 		if (existing) {
 			await respond(
@@ -257,7 +258,7 @@ export const handleIncidentCommand = async ({
 
 	await respond(
 		"📋 `/incident` コマンド一覧\n\n" +
-			"`/incident start` → インシデントを起票（モーダルが開きます）\n" +
+			"`/incident`（または `/incident start`）→ インシデントを起票（モーダルが開きます）\n" +
 			"`/incident status` → 対応状況を更新（調査中 / 原因特定 / 対応中 / 復旧確認中）\n" +
 			"`/incident end` → インシデントをクローズ（モーダルが開きます）\n" +
 			"`/incident help` → このヘルプを表示",
