@@ -9,7 +9,6 @@ import { handleIncidentCommand } from "../incident/incident.commands";
 import {
 	handleIncidentEndSubmission,
 	handleIncidentStartSubmission,
-	handleIncidentStatusSubmission,
 } from "../incident/incident.views";
 import { handleReactionAdded } from "../incident/reaction.events";
 import { handleMessageEvent } from "./message.events";
@@ -28,7 +27,6 @@ app.event("message", handleMessageEvent);
 app.event("reaction_added", handleReactionAdded);
 app.view("incident_start_modal", handleIncidentStartSubmission);
 app.view("incident_end_modal", handleIncidentEndSubmission);
-app.view("incident_status_modal", handleIncidentStatusSubmission);
 app.action(ACTION_STEP, handleChecklistStep);
 app.action(ACTION_ROLE, handleChecklistRole);
 

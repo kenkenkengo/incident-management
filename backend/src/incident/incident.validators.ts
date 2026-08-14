@@ -12,11 +12,6 @@ export const closeIncidentSchema = z.object({
 	resolution: z.string().min(1).max(2000),
 });
 
-export const statusUpdateSchema = z.object({
-	status: z.enum(["investigating", "identified", "responding", "recovering"]),
-	message: z.string().max(500).optional(),
-});
-
 // 監視アラート等からの自動起票ペイロード。
 // sourceChannelId は起票元となる Slack チャンネル（専用ch名・通知先の基準）。
 export const autoStartIncidentSchema = z.object({

@@ -1,9 +1,6 @@
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { Resource } from "sst";
-import type {
-	CreateIncidentRequest,
-	StatusUpdate,
-} from "../incident/incident.types";
+import type { CreateIncidentRequest } from "../incident/incident.types";
 
 /**
  * Slack モーダル送信後に非同期で処理するタスク。
@@ -29,14 +26,6 @@ export type SlackTask =
 			readonly incidentId: string;
 			readonly channelId: string;
 			readonly resolution: string;
-	  }
-	| {
-			readonly kind: "incident_status";
-			readonly incidentId: string;
-			readonly channelId: string;
-			readonly userId: string;
-			readonly status: StatusUpdate["status"];
-			readonly message?: string;
 	  };
 
 const sqs = new SQSClient({});

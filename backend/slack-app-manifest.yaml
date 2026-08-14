@@ -18,7 +18,7 @@ features:
     - command: /incident
       url: https://jdei9mq01m.execute-api.ap-northeast-1.amazonaws.com/slack/events
       description: インシデントの起票・状態更新・終了
-      usage_hint: start | status | end | help
+      usage_hint: (起票) | end | help
       should_escape: false
 oauth_config:
   scopes:

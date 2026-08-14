@@ -3,7 +3,6 @@ import { enqueueSlackTask } from "../slack/slack.tasks";
 import {
 	closeIncidentSchema,
 	createIncidentSchema,
-	statusUpdateSchema,
 } from "./incident.validators";
 
 /**
@@ -82,40 +81,5 @@ export const handleIncidentEndSubmission = async ({
 		incidentId,
 		channelId,
 		resolution,
-	});
-};
-
-export const handleIncidentStatusSubmission = async ({
-	ack,
-	view,
-}: AllMiddlewareArgs & SlackViewMiddlewareArgs) => {
-	await ack();
-
-	const { incidentId, channelId, userId } = JSON.parse(
-		view.private_metadata,
-	) as {
-		incidentId: string;
-		channelId: string;
-		userId: string;
-	};
-
-	const parsed = statusUpdateSchema.safeParse({
-		status: view.state.values.status_block.status.selected_option?.value,
-		message: view.state.values.message_block.message.value ?? undefined,
-	});
-
-	if (!parsed.success) {
-		return;
-	}
-
-	const { status, message } = parsed.data;
-
-	await enqueueSlackTask({
-		kind: "incident_status",
-		incidentId,
-		channelId,
-		userId,
-		status,
-		...(message !== undefined && { message }),
 	});
 };

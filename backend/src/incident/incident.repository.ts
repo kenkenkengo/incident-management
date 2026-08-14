@@ -403,11 +403,7 @@ export const getPostmortem = async (
 	return (result.Item as Postmortem) ?? null;
 };
 
-const statusUpdateKey = (incidentId: string, updatedAt: string) => ({
-	pk: `INCIDENT#${incidentId}`,
-	sk: `STATUS#${updatedAt}`,
-});
-
+// 過去インシデントの状態更新は表示側で参照する（`/incident status` は廃止済み）
 const toStatusUpdate = (item: Record<string, unknown>): StatusUpdate => ({
 	incidentId: item.incidentId as string,
 	status: item.status as StatusUpdate["status"],
@@ -415,21 +411,6 @@ const toStatusUpdate = (item: Record<string, unknown>): StatusUpdate => ({
 	updatedBy: item.updatedBy as string,
 	updatedAt: item.updatedAt as string,
 });
-
-export const addStatusUpdate = async (
-	data: StatusUpdate,
-): Promise<StatusUpdate> => {
-	await client.send(
-		new PutCommand({
-			TableName: TABLE_NAME,
-			Item: {
-				...statusUpdateKey(data.incidentId, data.updatedAt),
-				...data,
-			},
-		}),
-	);
-	return data;
-};
 
 export const listStatusUpdates = async (
 	incidentId: string,
