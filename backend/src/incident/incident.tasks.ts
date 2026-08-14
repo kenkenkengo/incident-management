@@ -6,14 +6,12 @@ import type { SlackTask } from "../slack/slack.tasks";
 import { createIncidentBacklogIssue } from "./backlog.service";
 import { postInitialChecklist } from "./incident.checklist";
 import {
-	addStatusUpdate,
 	close,
 	create,
 	findActiveBySourceChannel,
 	getInviteConfig,
 	setBacklogIssueKey,
 } from "./incident.repository";
-import type { StatusUpdate } from "./incident.types";
 import { formatMention, parseNotifyConfig } from "./notify.config";
 
 const formatDuration = (startedAt: string, endedAt: string): string => {
@@ -42,13 +40,6 @@ const createChannelName = async (
 
 	const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
 	return `inc-${channelName}-${date}`;
-};
-
-const STATUS_LABELS: Record<StatusUpdate["status"], string> = {
-	investigating: "調査中",
-	identified: "原因特定",
-	responding: "対応中",
-	recovering: "復旧確認中",
 };
 
 const SEVERITY_LABELS: Record<
@@ -333,38 +324,6 @@ export const runIncidentEnd = async (
 				`*所要時間:* ${duration}\n` +
 				`*解決方法:* ${resolution}\n\n` +
 				`📝 <${siteUrl}/incidents/${incidentId}|ポストモーテムを作成する>`,
-		});
-	} catch {
-		// 投稿失敗は無視
-	}
-};
-
-export const runIncidentStatus = async (
-	client: WebClient,
-	task: Extract<SlackTask, { kind: "incident_status" }>,
-): Promise<void> => {
-	const { incidentId, channelId, userId, status, message } = task;
-
-	const updatedAt = new Date().toISOString();
-	await addStatusUpdate({
-		incidentId,
-		status,
-		message,
-		updatedBy: userId,
-		updatedAt,
-	});
-
-	const label = STATUS_LABELS[status];
-	const messageText =
-		`🔄 *状態更新: ${label}*\n` +
-		`by <@${userId}>` +
-		(message ? `\n${message}` : "");
-
-	// 投稿失敗で throw すると SQS 再配信ループになるため握りつぶす
-	try {
-		await client.chat.postMessage({
-			channel: channelId,
-			text: messageText,
 		});
 	} catch {
 		// 投稿失敗は無視

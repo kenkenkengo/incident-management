@@ -1,11 +1,7 @@
 import { WebClient } from "@slack/web-api";
 import type { SQSHandler } from "aws-lambda";
 import { Resource } from "sst";
-import {
-	runIncidentEnd,
-	runIncidentStart,
-	runIncidentStatus,
-} from "../incident/incident.tasks";
+import { runIncidentEnd, runIncidentStart } from "../incident/incident.tasks";
 import type { SlackTask } from "./slack.tasks";
 
 /**
@@ -25,9 +21,6 @@ export const handler: SQSHandler = async (event) => {
 				break;
 			case "incident_end":
 				await runIncidentEnd(client, task);
-				break;
-			case "incident_status":
-				await runIncidentStatus(client, task);
 				break;
 		}
 	}
