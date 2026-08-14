@@ -11,12 +11,14 @@
 
 ## 0. 実装状況（2026-08-14 時点）
 
-計画のうち実装可能な項目はすべて本番（`production`）へ反映・マージ済み。PR は #6〜#36。
+計画のうち実装可能な項目はすべて本番（`production`）へ反映・マージ済み。PR は #6〜#40。
+
+> **注記（#40 で重要度を廃止）**: SEV1/SEV2/SEV3 の重要度概念は全面廃止。以下の「重大度別」記述は歴史的経緯として残すが、現行は **全インシデント共通**の扱い（通知/エスカレーション設定 `IncidentNotifyConfig` も単一設定、Backlog優先度は中(3)固定）。
 
 | 項目 | 状態 | PR | 備考 |
 |---|---|---|---|
 | P0-1 監視アラートからの自動起票 | ✅ 本番反映 | #10 | `POST /incidents/auto-start`（`x-auto-start-token` 認証） |
-| P0-2 重大度別の周知通知 | ✅ 本番反映（**要設定で有効化**） | #11 | `IncidentNotifyConfig`(JSON) 未設定なら発火しない |
+| P0-2 周知通知（現行は全インシデント共通） | ✅ 本番反映（**要設定で有効化**） | #11 #40 | `IncidentNotifyConfig`(JSON) 未設定なら発火しない |
 | P0-3 無更新エスカレーション | ✅ 本番反映（**要設定で有効化**） | #12 | 同上。リマインダーCronを15分粒度に変更 |
 | P1-1 役割アサイン/RACI | 🔧 部分対応 | #20 | 役割立候補ボタン（調査役／営業連絡役）＋リーダー自動招待を実装。RACIの全役割定義反映は保留 |
 | P1-2 初動チェックリスト | ✅ 本番反映（#20で刷新） | #13 #20 | **ボタン式**（完了記録・役割立候補・10分ナッジ） |
@@ -30,8 +32,10 @@
 - **#23 :memo: で発言をBacklogへ追記**: 専用chの発言に `:memo:` を付けると、その発言だけを当該インシデントのBacklog課題コメントへ追記（投稿者名＋パーマリンク付き、重複ガード、追記後スレッド通知）。生発言の全ミラーはせず不適切情報の混入を回避。Backlogモード連動（OFF/未連携なら追記しない）。**反映には Slack アプリ再インストールが必要**（`reactions:read` スコープ＋`reaction_added` イベント）。
 - **#25 `/incident status` 廃止**: :memo: 追記で代替できるため状態更新コマンド／モーダルを削除。過去データの表示（PMのステータス欄・API）は維持。リマインダーの最終活動はメッセージ活動で継続。
 - **#27 `/incident end` でトラブル報告をSlackへ自動投稿**: 終了時に定型フォーマット（＜発生日時＞＜時系列＞＜発生事象＞＜原因＞＜影響＞＜対応＞＜今後の対策＞）のトラブル報告を Bedrock で生成し専用chへ投稿（時刻JST・時系列はチャットログから要約）。冗長な終了サマリーは廃し**報告本文＋PM作成リンク**を投稿（生成失敗時は最小メッセージにフォールバック）。ワーカーに `bedrock:InvokeModel` 権限付与・timeout 120秒。
-- **#32 起票モーダルをタイトルのみに簡素化**: スピード重視で 重要度・影響範囲・案件/顧客・対外影響 を削除。重要度は既定 SEV2 を自動設定。
-- **#33 / #36 🆘リアクションで起票**: 任意の発言に **`:sos:`（🆘）** を付けると、その発言を種にインシデント起票（起票者=リアクション者・起票元=そのch・タイトル=本文先頭120字・重要度=SEV2）。**Backlog課題はその発言内容で初期起票**（description に元メッセージ本文＋パーマリンク）。`/incident` コマンドも併用可。※要 Slackアプリ再インストール（`reactions:read`＋`reaction_added`）。
+- **#32 起票モーダルをタイトルのみに簡素化**: スピード重視で 重要度・影響範囲・案件/顧客・対外影響 を削除（タイトルのみ）。
+- **#33 / #36 🆘リアクションで起票**: 任意の発言に **`:sos:`（🆘）** を付けると、その発言を種にインシデント起票（起票者=リアクション者・起票元=そのch・タイトル=本文をAI要約[#38]）。**Backlog課題はその発言内容で初期起票**（description に元メッセージ本文＋パーマリンク）。`/incident` コマンドも併用可。※要 Slackアプリ再インストール（`reactions:read`＋`reaction_added`）。
+- **#38 タイトルのAI要約 / `/incident end` の解決方法入力を廃止**: 🆘起票時はメッセージからBedrockで簡潔なタイトルを生成。`/incident end` は即クローズ（解決方法は入力不要、トラブル報告は会話から自動生成）。
+- **#40 重要度(SEV)を全面廃止**: フロント/バックエンド/通知設定から SEV を削除。通知/エスカレーションは全インシデント共通の単一設定に、Backlog優先度は中(3)固定に。
 - **#35 チャンネルに :memo: 案内を常時表示**: 起票時にピン留めされる初動チェックリスト末尾に「残したい発言に :memo: を付けると Backlog に追記」の案内を表示。
 
 **付随して実施した修正・ドキュメント**:
@@ -42,7 +46,7 @@
 
 ### 有効化に必要な運用操作（未実施）
 - **P0-2 / P0-3**: 通知先を設定（例）
-  `npx sst secret set IncidentNotifyConfig '{"SEV1":{"channels":["C0B2W9TJ24D"],"mentions":["S08SPQM8D99"],"escalateAfterMinutes":30}}' --stage production` → `npm run deploy:prod`
+  `npx sst secret set IncidentNotifyConfig '{"channels":["C0B2W9TJ24D"],"mentions":["S08SPQM8D99"],"escalateAfterMinutes":30}' --stage production` → `npm run deploy:prod`（全インシデント共通・重大度キーは廃止）
   （通知先chには Bot を招待）
 - **P1-3 Backlog**: `AWS_PROFILE=incident-prod node backend/scripts/set-backlog-mode.mjs on`（既定OFF。`off`/`status`/`on <projectKey>` で切替）
 - **リーダー自動招待**: `AWS_PROFILE=incident-prod node backend/scripts/set-invite-mode.mjs on`（既定OFF。`off`/`status`/`on <ids>` で切替）
