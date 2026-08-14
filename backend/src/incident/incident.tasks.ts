@@ -4,11 +4,13 @@ import { listAllRunbooks } from "../runbook/runbook.repository";
 import { searchRunbooks } from "../runbook/runbook.search";
 import type { SlackTask } from "../slack/slack.tasks";
 import { createIncidentBacklogIssue } from "./backlog.service";
+import { postInitialChecklist } from "./incident.checklist";
 import {
 	addStatusUpdate,
 	close,
 	create,
 	findActiveBySourceChannel,
+	getInviteConfig,
 } from "./incident.repository";
 import type { StatusUpdate } from "./incident.types";
 import { formatMention, parseNotifyConfig } from "./notify.config";
@@ -55,37 +57,6 @@ const SEVERITY_LABELS: Record<
 	SEV1: "SEV1 - 緊急",
 	SEV2: "SEV2 - 重大",
 	SEV3: "SEV3 - 軽微",
-};
-
-// 初動チェックリスト（P1-2）。障害時運用ルール（営業連絡→上長報告→役割分担→影響特定）を
-// 対応者が上から順にたどれるよう、専用チャンネルへ投稿しピン留めする。
-const INITIAL_CHECKLIST =
-	`📋 *初動チェックリスト*（対応者は上から順に。完了したらこのメッセージを編集して ☐→✅ に）\n` +
-	`1. ☐ 営業へ一次連絡（まず「事象確認・調査を行う」旨を伝える）\n` +
-	`2. ☐ 案件関係者・上長へ報告\n` +
-	`3. ☐ 役割分担（調査役／営業連絡役を立ち上げ。1人2役は避ける）\n` +
-	`4. ☐ 影響範囲の特定（対象・顧客・対外影響）\n` +
-	`5. ☐ \`/incident status\` で状況を随時更新`;
-
-const postInitialChecklist = async (
-	client: WebClient,
-	channelId: string,
-): Promise<void> => {
-	try {
-		const posted = await client.chat.postMessage({
-			channel: channelId,
-			text: INITIAL_CHECKLIST,
-		});
-		if (posted.ts) {
-			try {
-				await client.pins.add({ channel: channelId, timestamp: posted.ts });
-			} catch {
-				// ピン留め失敗は無視
-			}
-		}
-	} catch {
-		// 投稿失敗は無視（再配信暴走を防ぐ）
-	}
 };
 
 const notifyStakeholders = async (
@@ -234,6 +205,22 @@ export const runIncidentStart = async (
 			}
 		}
 
+		// リーダー陣を自動招待（テストモード時は無効＝起票者のみ）
+		try {
+			const invite = await getInviteConfig();
+			if (invite.enabled) {
+				const toInvite = invite.leaders.filter((id) => id !== userId);
+				if (toInvite.length > 0) {
+					await client.conversations.invite({
+						channel: newChannelId,
+						users: toInvite.join(","),
+					});
+				}
+			}
+		} catch {
+			// 招待失敗（既に参加済み等）は無視
+		}
+
 		// 専用チャンネルにサマリー投稿 + ピン留め
 		// 投稿失敗で例外を投げると SQS 再配信ループになるため握りつぶす
 		try {
@@ -256,8 +243,8 @@ export const runIncidentStart = async (
 			// 専用チャンネルへの投稿失敗は無視
 		}
 
-		// 初動チェックリストを投稿・ピン留め（P1-2）
-		await postInitialChecklist(client, newChannelId);
+		// 初動チェックリスト（ボタン式）を投稿・ピン留め（P1-2）
+		await postInitialChecklist(client, incident.id, newChannelId);
 
 		// 元チャンネルに通知（Bot が起票元チャンネルに未参加だと not_in_channel に
 		// なるが、致命的ではないので握りつぶす。ここで throw すると再配信暴走の原因になる）

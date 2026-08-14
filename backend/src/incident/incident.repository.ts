@@ -553,3 +553,97 @@ export const setBacklogConfig = async (cfg: BacklogConfig): Promise<void> => {
 		}),
 	);
 };
+
+// リーダー自動招待の設定。DynamoDB の設定アイテムで on/off・招待メンバーを保持。
+// 未設定時は enabled=false（テスト安全側=起票者のみ招待）。leaders 未設定時は既定リーダー陣。
+export interface InviteConfig {
+	readonly enabled: boolean;
+	readonly leaders: readonly string[];
+}
+
+// 既定の開発リーダー陣（Kouta Kawaguchi は除外）: îo / Kengo / Kouki Nishida / omizu / Hiromichi Honda
+const DEFAULT_LEADERS = [
+	"URX8H5H26",
+	"U01J1HU9HP1",
+	"U034NN6KQLW",
+	"U3VMFHU2W",
+	"UH0NG5UTS",
+];
+
+const INVITE_CONFIG_KEY = { pk: "CONFIG", sk: "INVITE" };
+
+export const getInviteConfig = async (): Promise<InviteConfig> => {
+	const result = await client.send(
+		new GetCommand({ TableName: TABLE_NAME, Key: INVITE_CONFIG_KEY }),
+	);
+	const item = result.Item;
+	return {
+		enabled: item?.enabled === true,
+		leaders: (item?.leaders as string[]) ?? DEFAULT_LEADERS,
+	};
+};
+
+export const setInviteConfig = async (cfg: {
+	enabled: boolean;
+	leaders?: readonly string[];
+}): Promise<void> => {
+	await client.send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...INVITE_CONFIG_KEY,
+				enabled: cfg.enabled,
+				leaders: cfg.leaders ?? DEFAULT_LEADERS,
+			},
+		}),
+	);
+};
+
+// 初動チェックリストの状態（ボタン式）。pk=INCIDENT#<id>, sk=CHECKLIST。
+export interface ChecklistStep {
+	readonly done: boolean;
+	readonly by?: string;
+	readonly at?: string;
+}
+export interface ChecklistState {
+	readonly incidentId: string;
+	readonly channelId: string;
+	messageTs?: string;
+	readonly createdAt: string;
+	// stepKey -> 完了状態
+	readonly steps: Record<string, ChecklistStep>;
+	// roleKey -> userId（未アサインのキーは持たない）
+	readonly roles: Record<string, string>;
+}
+
+const checklistKey = (incidentId: string) => ({
+	pk: `INCIDENT#${incidentId}`,
+	sk: "CHECKLIST",
+});
+
+export const getChecklist = async (
+	incidentId: string,
+): Promise<ChecklistState | null> => {
+	const result = await client.send(
+		new GetCommand({ TableName: TABLE_NAME, Key: checklistKey(incidentId) }),
+	);
+	return result.Item ? (result.Item as unknown as ChecklistState) : null;
+};
+
+export const saveChecklist = async (state: ChecklistState): Promise<void> => {
+	// undefined を含めないよう明示的に組み立てる（DocumentClient が undefined を拒否するため）
+	await client.send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...checklistKey(state.incidentId),
+				incidentId: state.incidentId,
+				channelId: state.channelId,
+				createdAt: state.createdAt,
+				steps: state.steps,
+				roles: state.roles,
+				...(state.messageTs !== undefined && { messageTs: state.messageTs }),
+			},
+		}),
+	);
+};

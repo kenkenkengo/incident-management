@@ -1,6 +1,8 @@
 import { WebClient } from "@slack/web-api";
 import { Resource } from "sst";
+import { STEP_DEFS } from "./incident.checklist";
 import {
+	getChecklist,
 	getLatestActivity,
 	hasReminder,
 	listAll,
@@ -115,6 +117,27 @@ export const handler = async () => {
 		) {
 			await escalate(slackClient, incident, cfg);
 			await saveReminder(incident.id, "escalation");
+		}
+
+		// 初動チェックリストのナッジ: 起票から10分経っても未完了があれば1回催促
+		const checklist = await getChecklist(incident.id);
+		if (
+			checklist &&
+			now - new Date(checklist.createdAt).getTime() >= 10 * 60 * 1000 &&
+			!(await hasReminder(incident.id, "checklist_nudge"))
+		) {
+			const incomplete = STEP_DEFS.filter((s) => !checklist.steps[s.key]?.done);
+			if (incomplete.length > 0) {
+				await slackClient.chat.postMessage({
+					channel: incident.channelId,
+					text: `⏰ 初動チェックリストに未完了があります:\n${incomplete
+						.map((s) => `・${s.label}`)
+						.join(
+							"\n",
+						)}\nピン留めのチェックリストから完了ボタンを押してください。`,
+				});
+				await saveReminder(incident.id, "checklist_nudge");
+			}
 		}
 	}
 };
