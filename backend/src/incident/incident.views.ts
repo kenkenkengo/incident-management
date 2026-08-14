@@ -22,26 +22,17 @@ export const handleIncidentStartSubmission = async ({
 		userId: string;
 	};
 
-	const externalImpactValue =
-		view.state.values.external_impact_block.external_impact.selected_option
-			?.value;
-
+	// スピード重視のため起票モーダルはタイトルのみ。重要度は既定 SEV2 とする。
 	const parsed = createIncidentSchema.safeParse({
 		title: view.state.values.title_block.title.value,
-		severity: view.state.values.severity_block.severity.selected_option?.value,
-		impact: view.state.values.impact_block.impact.value ?? undefined,
-		project: view.state.values.project_block.project.value ?? undefined,
-		externalImpact:
-			externalImpactValue === undefined
-				? undefined
-				: externalImpactValue === "true",
+		severity: "SEV2",
 	});
 
 	if (!parsed.success) {
 		return;
 	}
 
-	const { title, severity, impact, project, externalImpact } = parsed.data;
+	const { title, severity } = parsed.data;
 
 	await enqueueSlackTask({
 		kind: "incident_start",
@@ -49,9 +40,6 @@ export const handleIncidentStartSubmission = async ({
 		userId,
 		title,
 		severity,
-		...(impact !== undefined && { impact }),
-		...(project !== undefined && { project }),
-		...(externalImpact !== undefined && { externalImpact }),
 	});
 };
 
