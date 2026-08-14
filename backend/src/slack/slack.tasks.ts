@@ -28,7 +28,7 @@ export type SlackTask =
 			readonly kind: "incident_end";
 			readonly incidentId: string;
 			readonly channelId: string;
-			readonly resolution: string;
+			readonly resolution?: string;
 	  };
 
 const sqs = new SQSClient({});

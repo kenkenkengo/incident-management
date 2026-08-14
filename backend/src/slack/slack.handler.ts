@@ -6,10 +6,7 @@ import {
 } from "../incident/incident.actions";
 import { ACTION_ROLE, ACTION_STEP } from "../incident/incident.checklist";
 import { handleIncidentCommand } from "../incident/incident.commands";
-import {
-	handleIncidentEndSubmission,
-	handleIncidentStartSubmission,
-} from "../incident/incident.views";
+import { handleIncidentStartSubmission } from "../incident/incident.views";
 import { handleReactionAdded } from "../incident/reaction.events";
 import { handleMessageEvent } from "./message.events";
 
@@ -26,7 +23,6 @@ app.command("/incident", handleIncidentCommand);
 app.event("message", handleMessageEvent);
 app.event("reaction_added", handleReactionAdded);
 app.view("incident_start_modal", handleIncidentStartSubmission);
-app.view("incident_end_modal", handleIncidentEndSubmission);
 app.action(ACTION_STEP, handleChecklistStep);
 app.action(ACTION_ROLE, handleChecklistRole);
 
