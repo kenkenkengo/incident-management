@@ -309,36 +309,30 @@ export const runIncidentEnd = async (
 		return;
 	}
 
+	const siteUrl = Resource.Site.url;
+	const pmLink = `📝 <${siteUrl}/incidents/${incidentId}|ポストモーテムを作成する>`;
+
+	// 終了時にトラブル報告（定型フォーマット）を生成して専用chへ投稿する。
+	// 冗長な終了サマリーは廃し、報告本文＋ポストモーテムリンクのみを投稿する。
+	let report = "";
+	try {
+		const messages = await listAllMessages(incidentId);
+		report = await generateTroubleReport(incident, messages);
+	} catch {
+		// 生成失敗はフォールバックの最小メッセージで補う
+	}
+
 	const duration = incident.endedAt
 		? formatDuration(incident.startedAt, incident.endedAt)
 		: "不明";
-
-	const siteUrl = Resource.Site.url;
+	const text = report
+		? `${report}\n\n${pmLink}`
+		: `✅ *インシデント終了* — ${incident.title}\n*所要時間:* ${duration}\n*解決方法:* ${resolution}\n\n${pmLink}`;
 
 	// 投稿失敗で throw すると SQS 再配信ループになるため握りつぶす
 	try {
-		await client.chat.postMessage({
-			channel: channelId,
-			text:
-				`✅ *インシデント終了*\n` +
-				`*タイトル:* ${incident.title}\n` +
-				`*重要度:* ${incident.severity}\n` +
-				`*所要時間:* ${duration}\n` +
-				`*解決方法:* ${resolution}\n\n` +
-				`📝 <${siteUrl}/incidents/${incidentId}|ポストモーテムを作成する>`,
-		});
+		await client.chat.postMessage({ channel: channelId, text });
 	} catch {
 		// 投稿失敗は無視
-	}
-
-	// 終了時にトラブル報告（定型フォーマット）を生成して専用チャンネルへ投稿する
-	try {
-		const messages = await listAllMessages(incidentId);
-		const report = await generateTroubleReport(incident, messages);
-		if (report) {
-			await client.chat.postMessage({ channel: channelId, text: report });
-		}
-	} catch {
-		// 生成/投稿失敗は無視（終了フローは止めない）
 	}
 };
