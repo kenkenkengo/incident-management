@@ -178,6 +178,9 @@ export const runIncidentStart = async (
 	const reporter = userId
 		? `<@${userId}>`
 		: `🤖 自動検知${detectedBy ? ` (${detectedBy})` : ""}`;
+	// 開始時刻は Slack の日付表記で各自のローカルタイムゾーン表示にする（UTC生表示を避ける）
+	const startedTs = Math.floor(new Date(incident.startedAt).getTime() / 1000);
+	const startedAtDisplay = `<!date^${startedTs}^{date_num} {time}|${incident.startedAt}>`;
 	const summaryMessage =
 		`🚨 *インシデント開始*\n` +
 		`*タイトル:* ${title}\n` +
@@ -186,7 +189,7 @@ export const runIncidentStart = async (
 		(impact ? `*影響範囲:* ${impact}\n` : "") +
 		(sourceLink ? `*元メッセージ:* ${sourceLink}\n` : "") +
 		`*起票者:* ${reporter}\n` +
-		`*開始:* ${incident.startedAt}` +
+		`*開始:* ${startedAtDisplay}` +
 		runbookSection;
 
 	if (newChannelId) {
