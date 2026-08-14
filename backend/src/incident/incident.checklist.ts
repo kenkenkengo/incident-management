@@ -86,6 +86,17 @@ export const renderChecklistBlocks = (
 		})),
 	});
 
+	// このチャンネルでの操作案内（常時表示・ピン留めされる）
+	blocks.push({
+		type: "context",
+		elements: [
+			{
+				type: "mrkdwn",
+				text: "💡 残したい発言に :memo: を付けると Backlog 課題に追記されます。",
+			},
+		],
+	});
+
 	return blocks;
 };
 
