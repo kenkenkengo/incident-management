@@ -259,12 +259,6 @@ const handleGenerateRunbook = async () => {
 
 				<div class="meta-grid">
 					<div class="meta-item">
-						<span class="meta-label">重要度</span>
-						<span class="meta-value">
-							<span :class="['severity-badge', incident.severity.toLowerCase()]">{{ incident.severity }}</span>
-						</span>
-					</div>
-					<div class="meta-item">
 						<span class="meta-label">開始</span>
 						<span class="meta-value mono">{{ formatDate(incident.startedAt) }}</span>
 					</div>
@@ -738,33 +732,6 @@ const handleGenerateRunbook = async () => {
 .btn-regenerate:hover:not(:disabled) {
 	color: var(--accent);
 	border-color: var(--accent);
-}
-
-.severity-badge {
-	font-family: var(--font-mono);
-	font-size: 0.7rem;
-	font-weight: 600;
-	letter-spacing: 0.04em;
-	padding: 2px 8px;
-	border-radius: 3px;
-}
-
-.severity-badge.sev1 {
-	color: var(--status-danger);
-	background: var(--status-danger-dim);
-	border: 1px solid rgba(192, 55, 55, 0.25);
-}
-
-.severity-badge.sev2 {
-	color: var(--status-warning, #c78a1e);
-	background: rgba(199, 138, 30, 0.1);
-	border: 1px solid rgba(199, 138, 30, 0.25);
-}
-
-.severity-badge.sev3 {
-	color: var(--text-secondary);
-	background: var(--bg-elevated);
-	border: 1px solid var(--border-subtle);
 }
 
 /* Status update timeline entries */

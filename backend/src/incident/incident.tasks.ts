@@ -47,36 +47,25 @@ const createChannelName = async (
 	return `inc-${channelName}-${date}`;
 };
 
-const SEVERITY_LABELS: Record<
-	Extract<SlackTask, { kind: "incident_start" }>["severity"],
-	string
-> = {
-	SEV1: "SEV1 - 緊急",
-	SEV2: "SEV2 - 重大",
-	SEV3: "SEV3 - 軽微",
-};
-
 const notifyStakeholders = async (
 	client: WebClient,
-	severity: Extract<SlackTask, { kind: "incident_start" }>["severity"],
 	opts: {
 		readonly title: string;
 		readonly impact?: string;
-		readonly severityLabel: string;
 		readonly incidentChannelId?: string;
 		readonly sourceChannelId: string;
 	},
 ): Promise<void> => {
-	const target = parseNotifyConfig()[severity];
-	const channels = target?.channels ?? [];
+	const target = parseNotifyConfig();
+	const channels = target.channels ?? [];
 	if (channels.length === 0) {
 		return;
 	}
 
-	const mentions = (target?.mentions ?? []).map(formatMention).join(" ");
+	const mentions = (target.mentions ?? []).map(formatMention).join(" ");
 	const link = `<#${opts.incidentChannelId ?? opts.sourceChannelId}>`;
 	const text =
-		`🚨 *[${opts.severityLabel}] インシデント発生*\n` +
+		`🚨 *インシデント発生*\n` +
 		`*タイトル:* ${opts.title}\n` +
 		(opts.impact ? `*影響範囲:* ${opts.impact}\n` : "") +
 		`*対応チャンネル:* ${link}` +
@@ -100,7 +89,6 @@ export const runIncidentStart = async (
 		userId,
 		detectedBy,
 		title: rawTitle,
-		severity,
 		impact,
 		project,
 		externalImpact,
@@ -159,7 +147,6 @@ export const runIncidentStart = async (
 	const incident = await create(
 		{
 			title,
-			severity,
 			...(impact !== undefined && { impact }),
 			...(project !== undefined && { project }),
 			...(externalImpact !== undefined && { externalImpact }),
@@ -188,14 +175,12 @@ export const runIncidentStart = async (
 		// ランブック検索失敗は無視
 	}
 
-	const severityLabel = SEVERITY_LABELS[severity];
 	const reporter = userId
 		? `<@${userId}>`
 		: `🤖 自動検知${detectedBy ? ` (${detectedBy})` : ""}`;
 	const summaryMessage =
 		`🚨 *インシデント開始*\n` +
 		`*タイトル:* ${title}\n` +
-		`*重要度:* ${severityLabel}\n` +
 		(project ? `*案件・顧客:* ${project}\n` : "") +
 		(externalImpact ? `*対外影響:* ⚠️ あり（顧客・対外に影響）\n` : "") +
 		(impact ? `*影響範囲:* ${impact}\n` : "") +
@@ -263,7 +248,7 @@ export const runIncidentStart = async (
 		try {
 			await client.chat.postMessage({
 				channel: channelId,
-				text: `🚨 インシデント「${title}」(${severityLabel}) の対応を <#${newChannelId}> で開始しました。`,
+				text: `🚨 インシデント「${title}」の対応を <#${newChannelId}> で開始しました。`,
 			});
 		} catch {
 			// 起票元チャンネルへの通知失敗は無視
@@ -283,7 +268,6 @@ export const runIncidentStart = async (
 	// Backlog 課題を自動作成（P1-3）。失敗しても起票フローは止めない。
 	const backlog = await createIncidentBacklogIssue({
 		title,
-		severity,
 		...(impact !== undefined && { impact }),
 		...(project !== undefined && { project }),
 		...(externalImpact !== undefined && { externalImpact }),
@@ -308,11 +292,10 @@ export const runIncidentStart = async (
 		}
 	}
 
-	// 重大度別の周知通知（上長・営業・関係チャンネル等）。設定は外部Secret（P0-2）。
-	await notifyStakeholders(client, severity, {
+	// 周知通知（上長・営業・関係チャンネル等）。設定は外部Secret（P0-2）。
+	await notifyStakeholders(client, {
 		title,
-		impact,
-		severityLabel,
+		...(impact !== undefined && { impact }),
 		incidentChannelId: newChannelId,
 		sourceChannelId: channelId,
 	});

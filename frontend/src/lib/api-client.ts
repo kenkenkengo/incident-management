@@ -188,7 +188,6 @@ export type Incident = {
 	readonly id: string;
 	readonly channelId: string;
 	readonly title: string;
-	readonly severity: "SEV1" | "SEV2" | "SEV3";
 	readonly impact?: string;
 	readonly status: "active" | "closed";
 	readonly startedAt: string;

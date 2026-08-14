@@ -3,7 +3,6 @@ export interface Incident {
 	readonly channelId: string;
 	readonly sourceChannelId: string;
 	readonly title: string;
-	readonly severity: "SEV1" | "SEV2" | "SEV3";
 	readonly impact?: string;
 	// 案件・顧客名（対外案件の識別用, P2-1）
 	readonly project?: string;
@@ -29,7 +28,6 @@ export interface IncidentMessage {
 
 export interface CreateIncidentRequest {
 	readonly title: string;
-	readonly severity: "SEV1" | "SEV2" | "SEV3";
 	readonly impact?: string;
 	readonly project?: string;
 	readonly externalImpact?: boolean;

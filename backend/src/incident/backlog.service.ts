@@ -153,7 +153,6 @@ const appendRequiredFields = (
 
 export interface BacklogIssueInput {
 	readonly title: string;
-	readonly severity: "SEV1" | "SEV2" | "SEV3";
 	readonly impact?: string;
 	readonly project?: string;
 	readonly externalImpact?: boolean;
@@ -163,9 +162,8 @@ export interface BacklogIssueInput {
 	readonly sourceLink?: string;
 }
 
-// SEV → Backlog 優先度ID（high=2 / medium=3 / low=4）
-const priorityForSeverity = (severity: string): number =>
-	severity === "SEV1" ? 2 : severity === "SEV2" ? 3 : 4;
+// 重要度は廃止したため優先度は「中(3)」固定
+const DEFAULT_PRIORITY_ID = 3;
 
 /**
  * インシデント起票時に Backlog 課題を作成する。モード無効なら起票しない。
@@ -184,10 +182,9 @@ export const createIncidentBacklogIssue = async (
 		const { projectId, issueTypeId, requiredFields } = await resolveProject(
 			config.projectKey,
 		);
-		const summary = `[${input.severity}] ${input.title}`.slice(0, 255);
+		const summary = input.title.slice(0, 255);
 		const description =
 			`インシデント自動起票（generosity-incident-management）\n` +
-			`重要度: ${input.severity}\n` +
 			(input.project ? `案件・顧客: ${input.project}\n` : "") +
 			(input.externalImpact ? `対外影響: あり\n` : "") +
 			(input.impact ? `影響範囲: ${input.impact}\n` : "") +
@@ -199,7 +196,7 @@ export const createIncidentBacklogIssue = async (
 			projectId: String(projectId),
 			summary,
 			issueTypeId: String(issueTypeId),
-			priorityId: String(priorityForSeverity(input.severity)),
+			priorityId: String(DEFAULT_PRIORITY_ID),
 			description,
 		});
 		// 必須カスタムフィールド（例: TR の「プロダクト名」）を自動補完

@@ -109,7 +109,6 @@ const formatDuration = (incident: Incident) => {
 		<div class="incident-table">
 			<div class="table-head">
 				<span class="col-status">Status</span>
-				<span class="col-severity">Severity</span>
 				<span class="col-title">Title</span>
 				<span class="col-duration">Duration</span>
 				<span class="col-date">Started</span>
@@ -155,11 +154,6 @@ const formatDuration = (incident: Incident) => {
 						<span :class="['status-badge', incident.status]">
 							<span :class="['status-dot', incident.status]" />
 							{{ incident.status === "active" ? "ACTIVE" : "CLOSED" }}
-						</span>
-					</span>
-					<span class="col-severity">
-						<span :class="['status-badge', incident.severity.toLowerCase()]">
-							{{ incident.severity }}
 						</span>
 					</span>
 					<span class="col-title">
@@ -293,7 +287,7 @@ const formatDuration = (incident: Incident) => {
 
 .table-head {
 	display: grid;
-	grid-template-columns: 100px 70px 1fr 80px 160px 32px;
+	grid-template-columns: 100px 1fr 80px 160px 32px;
 	align-items: center;
 	padding: 8px var(--space-lg);
 	background: var(--bg-elevated);
@@ -311,7 +305,7 @@ const formatDuration = (incident: Incident) => {
 
 .table-row {
 	display: grid;
-	grid-template-columns: 100px 70px 1fr 80px 160px 32px;
+	grid-template-columns: 100px 1fr 80px 160px 32px;
 	align-items: center;
 	padding: var(--space-md) var(--space-lg);
 	border-bottom: 1px solid var(--border-subtle);

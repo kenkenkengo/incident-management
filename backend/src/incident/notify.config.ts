@@ -1,13 +1,11 @@
 import { Resource } from "sst";
 
-// 重大度別の周知/エスカレーション設定（P0-2 / P0-3）。
+// 周知/エスカレーション設定（P0-2 / P0-3）。全インシデント共通の単一設定。
 // SST Secret IncidentNotifyConfig に JSON で外部設定する。未設定・不正なら空扱い（無害）。
 // 例:
 // {
-//   "SEV1": {
-//     "channels": ["C0B2W9TJ24D"], "mentions": ["S08SPQM8D99", "U01J1HU9HP1"],
-//     "escalateAfterMinutes": 30, "escalateMentions": ["S08SPQM8D99"]
-//   }
+//   "channels": ["C0B2W9TJ24D"], "mentions": ["S08SPQM8D99", "U01J1HU9HP1"],
+//   "escalateAfterMinutes": 30, "escalateMentions": ["S08SPQM8D99"]
 // }
 export interface NotifyTarget {
 	// 起票時の周知先（P0-2）
@@ -21,7 +19,8 @@ export interface NotifyTarget {
 	readonly escalateChannels?: readonly string[];
 }
 
-export const parseNotifyConfig = (): Record<string, NotifyTarget> => {
+// 重要度の概念は廃止したため、設定は単一の通知先（全インシデント共通）。
+export const parseNotifyConfig = (): NotifyTarget => {
 	try {
 		const raw = Resource.IncidentNotifyConfig.value;
 		if (!raw || !raw.trim()) {
@@ -29,7 +28,7 @@ export const parseNotifyConfig = (): Record<string, NotifyTarget> => {
 		}
 		const parsed: unknown = JSON.parse(raw);
 		return typeof parsed === "object" && parsed !== null
-			? (parsed as Record<string, NotifyTarget>)
+			? (parsed as NotifyTarget)
 			: {};
 	} catch {
 		return {};

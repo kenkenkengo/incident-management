@@ -19,23 +19,21 @@ export const handleIncidentStartSubmission = async ({
 		userId: string;
 	};
 
-	// スピード重視のため起票モーダルはタイトルのみ。重要度は既定 SEV2 とする。
+	// スピード重視のため起票モーダルはタイトルのみ。
 	const parsed = createIncidentSchema.safeParse({
 		title: view.state.values.title_block.title.value,
-		severity: "SEV2",
 	});
 
 	if (!parsed.success) {
 		return;
 	}
 
-	const { title, severity } = parsed.data;
+	const { title } = parsed.data;
 
 	await enqueueSlackTask({
 		kind: "incident_start",
 		channelId,
 		userId,
 		title,
-		severity,
 	});
 };
