@@ -309,8 +309,10 @@ export const runIncidentEnd = async (
 		return;
 	}
 
+	const siteUrl = Resource.Site.url;
+	const pmLink = `📝 <${siteUrl}/incidents/${incidentId}|ポストモーテムを作成する>`;
+
 	// 終了時にトラブル報告（定型フォーマット）を生成して専用chへ投稿する。
-	// インシデント管理は Backlog がメインのため、ポストモーテムリンクは貼らない。
 	let report = "";
 	try {
 		const messages = await listAllMessages(incidentId);
@@ -323,8 +325,8 @@ export const runIncidentEnd = async (
 		? formatDuration(incident.startedAt, incident.endedAt)
 		: "不明";
 	const text = report
-		? report
-		: `✅ *インシデント終了* — ${incident.title}\n*所要時間:* ${duration}\n*解決方法:* ${resolution}`;
+		? `${report}\n\n${pmLink}`
+		: `✅ *インシデント終了* — ${incident.title}\n*所要時間:* ${duration}\n*解決方法:* ${resolution}\n\n${pmLink}`;
 
 	// 投稿失敗で throw すると SQS 再配信ループになるため握りつぶす
 	try {
