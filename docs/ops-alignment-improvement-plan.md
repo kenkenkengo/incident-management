@@ -11,7 +11,7 @@
 
 ## 0. 実装状況（2026-08-14 時点）
 
-計画のうち実装可能な項目はすべて本番（`production`）へ反映・マージ済み。PR は #6〜#21。
+計画のうち実装可能な項目はすべて本番（`production`）へ反映・マージ済み。PR は #6〜#23。
 
 | 項目 | 状態 | PR | 備考 |
 |---|---|---|---|
@@ -27,6 +27,7 @@
 **運用要望で追加した機能（計画外）**:
 - **#20 起票時の初動ガイド強化**: 初動チェックリストをボタン式に刷新（各ステップの完了を「誰が・いつ」で記録、役割立候補=調査役/営業連絡役、1人2役は警告）。10分未完了で自動ナッジ。**リーダー自動招待**（起票時に開発リーダー陣を専用chへ招集。既定OFF＝テスト時は起票者のみ。既定メンバーは Kouta Kawaguchi を除く5名）。
 - **#21 `/incident`（引数なし）で起票**: `/incident start` に加え、引数なし `/incident` でも起票モーダルが開く。
+- **#23 :memo: で発言をBacklogへ追記**: 専用chの発言に `:memo:` を付けると、その発言だけを当該インシデントのBacklog課題コメントへ追記（投稿者名＋パーマリンク付き、重複ガード、追記後スレッド通知）。生発言の全ミラーはせず不適切情報の混入を回避。Backlogモード連動（OFF/未連携なら追記しない）。**反映には Slack アプリ再インストールが必要**（`reactions:read` スコープ＋`reaction_added` イベント）。
 
 **付随して実施した修正・ドキュメント**:
 - #6 Slackモーダルの3秒タイムアウト＆SQS再配信暴走の解消（非同期ワーカー化・DLQ・冪等ガード）
@@ -48,12 +49,14 @@
 - APIキーは SST Secret `BacklogApiKey`（既存 `slack_to_backlog` のキーを流用）
 - 追加した SST Secret: `AutoStartToken` / `IncidentNotifyConfig` / `BacklogApiKey`
 - DynamoDB 設定アイテム（デプロイ不要で切替）: `CONFIG/BACKLOG`（Backlog）/ `CONFIG/INVITE`（リーダー招待）
+- Backlog 追記トリガー絵文字: `:memo:`（`reaction.events.ts` の `TRIGGER_EMOJI`）。受信には Slack アプリに `reactions:read` スコープ＋`reaction_added` イベント購読が必要（manifest 反映済み・**要再インストール**）
 - 追加スクリプト: `set-backlog-mode.mjs` / `set-invite-mode.mjs`（モード切替）/ `close-all-incidents.mjs` / `delete-all-incidents.mjs`（運用）
 
 ### 残タスク
+- **Slackアプリ再インストール**: `:memo:` 追記(#23)の反映に必要（`reactions:read` スコープ＋`reaction_added` イベント）
 - P1-1: RACIボードの役割定義を反映（現状は調査役／営業連絡役の2役＋リーダー招待まで対応）
 - P2-2: site_watcher / ドメイン期限監視から `/incidents/auto-start` への配線
-- 検証: Backlog / リーダー招待を `on` にして実起票・実招待が成功するか初回確認
+- 検証: Backlog / リーダー招待を `on` にして実起票・実招待・:memo:追記が成功するか初回確認
 
 ---
 
