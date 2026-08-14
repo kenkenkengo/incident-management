@@ -10,9 +10,11 @@ import {
 	create,
 	findActiveBySourceChannel,
 	getInviteConfig,
+	listAllMessages,
 	setBacklogIssueKey,
 } from "./incident.repository";
 import { formatMention, parseNotifyConfig } from "./notify.config";
+import { generateTroubleReport } from "./postmortem.service";
 
 const formatDuration = (startedAt: string, endedAt: string): string => {
 	const diff = new Date(endedAt).getTime() - new Date(startedAt).getTime();
@@ -327,5 +329,16 @@ export const runIncidentEnd = async (
 		});
 	} catch {
 		// 投稿失敗は無視
+	}
+
+	// 終了時にトラブル報告（定型フォーマット）を生成して専用チャンネルへ投稿する
+	try {
+		const messages = await listAllMessages(incidentId);
+		const report = await generateTroubleReport(incident, messages);
+		if (report) {
+			await client.chat.postMessage({ channel: channelId, text: report });
+		}
+	} catch {
+		// 生成/投稿失敗は無視（終了フローは止めない）
 	}
 };
