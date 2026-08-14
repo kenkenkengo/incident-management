@@ -42,12 +42,22 @@ AWS_PROFILE=incident-prod node backend/scripts/set-backlog-mode.mjs status
 AWS_PROFILE=incident-prod npx sst secret set IncidentNotifyConfig '{}' --stage production && AWS_PROFILE=incident-prod npm run deploy:prod
 ```
 
-### 2.3 ドリル用の「起票元チャンネル」を用意
-- 練習は本番運用チャンネル（#ops 等）ではなく、**ドリル用チャンネル**（例: `#incident-drill`）から `/incident start` する。
+### 2.3 リーダー自動招待を止める（テスト時）
+本番では起票時に開発リーダー陣が専用chへ自動招集されるが、ドリルでは実際のリーダーを巻き込まないよう **OFF** にする（OFF時は起票者のみ招待）。
+```
+# ドリル前: リーダー自動招待を OFF
+AWS_PROFILE=incident-prod node backend/scripts/set-invite-mode.mjs off
+# 現在値の確認
+AWS_PROFILE=incident-prod node backend/scripts/set-invite-mode.mjs status
+```
+> 本番運用に戻すときは `... set-invite-mode.mjs on`（既定メンバーは Kouta Kawaguchi を除く開発リーダー5名）。
+
+### 2.4 ドリル用の「起票元チャンネル」を用意
+- 練習は本番運用チャンネル（#ops 等）ではなく、**ドリル用チャンネル**（例: `#incident-drill`）から `/incident`（または `/incident start`）で起票する。
 - Bot（`@generosity_incident_management`）をそのチャンネルに `/invite` しておく（起票元への開始通知が届くように）。
 - **同じ起票元チャンネルには同時に1件しかアクティブにできない**（重複起票ガード）。複数シナリオを同時にやるなら起票元チャンネルを分ける。基本は**1本ずつ順番に**実施する。
 
-### 2.4 参加者と役割を決める
+### 2.5 参加者と役割を決める
 | 役割 | 人数 | やること |
 |---|---|---|
 | ファシリテーター | 1 | 進行役。シナリオの「インジェクト（状況投下）」を出す。時間管理。 |
@@ -56,15 +66,19 @@ AWS_PROFILE=incident-prod npx sst secret set IncidentNotifyConfig '{}' --stage p
 | 営業連絡担当 | 1 | 「営業へ一次連絡した」等の対外コミュニケーション役。 |
 | レビュアー | 1 | 収束後に Web でポストモーテム/ランブックを生成・確認。 |
 
-> 少人数なら1人2役でも可。ただし本番同様「調査役と営業連絡役は分ける」意識で。
+> 少人数なら1人2役でも可。ただし本番同様「調査役と営業連絡役は分ける」意識で（チェックリストの役割ボタンでも1人2役は警告されます）。
 
 ---
 
 ## 3. 当日の基本フロー
 
 1. ファシリテーターが「これから SEVx のドリルを始めます」と宣言。
-2. コマンダーがドリル用チャンネルで `/incident start` → モーダル入力 → 専用チャンネル（`inc-...`）が自動生成。
-3. 全員 専用チャンネルへ移動。ピン留めされた**初動チェックリスト**の順に進める。
+2. コマンダーがドリル用チャンネルで **`/incident`**（引数なしでOK。`/incident start` も可）→ モーダル入力 → 専用チャンネル（`inc-...`）が自動生成。
+   - ドリルではリーダー招待OFF（2.3）なので、専用chに入るのは**起票者のみ**。
+3. 全員 専用チャンネルへ移動。ピン留めされた**ボタン式 初動チェックリスト**に沿って進める。
+   - 各ステップは完了したら **「完了にする」ボタン**を押す（✅＋誰が/いつ が記録される）。
+   - **役割ボタン**で「調査役」「営業連絡役」に立候補（同じ人が両方取ると⚠️警告）。
+   - ※ 起票から10分経っても未完了があると、Botが**自動でナッジ**（催促）を投稿する。
 4. ファシリテーターが専用チャンネルに**インジェクト**（下記シナリオ）を時間差で投下。
 5. 参加者は調査発言・`/incident status` 更新で応答（＝すべて記録される）。
 6. 復旧できたら `/incident end` で解決方法を入力してクローズ。
@@ -146,7 +160,8 @@ AWS_PROFILE=incident-prod npx sst secret set IncidentNotifyConfig '{}' --stage p
 4. 必要なら **「Runbookを生成」** → 内容を確認して保存（＝再発防止ナレッジ化の練習）。
 
 **講評の観点**
-- 初動チェックリストの順序を守れたか（営業連絡→上長報告→役割分担→影響特定）。
+- 初動チェックリストの各ボタンを順に押して進められたか（営業連絡→上長報告→役割分担→影響特定）。
+- 役割ボタンで「調査役／営業連絡役」を**分担**できたか（1人2役になっていないか）。
 - 会話を専用チャンネルに集約できたか（起票元での対応議論は記録されない）。
 - `/incident status` をこまめに更新したか。
 - `/incident end` の解決方法が具体的だったか（PMの質に直結）。
@@ -168,6 +183,8 @@ AWS_PROFILE=incident-prod node backend/scripts/delete-all-incidents.mjs         
 ```
 # Backlog を本番運用に戻す（使う場合）
 AWS_PROFILE=incident-prod node backend/scripts/set-backlog-mode.mjs on
+# リーダー自動招待を本番運用に戻す（使う場合）
+AWS_PROFILE=incident-prod node backend/scripts/set-invite-mode.mjs on
 # 通知設定をドリル用に空にしていたら本番用へ戻す（該当時のみ）
 ```
 
@@ -177,13 +194,14 @@ AWS_PROFILE=incident-prod node backend/scripts/set-backlog-mode.mjs on
 
 事前:
 - ☐ Backlog を off（or テストプロジェクト）に設定した
+- ☐ **リーダー自動招待を off** にした（テスト時は起票者のみ招待）
 - ☐ 周知通知（IncidentNotifyConfig）がドリル中に本番宛先へ飛ばない状態を確認した
 - ☐ ドリル用チャンネルを用意し Bot を招待した
 - ☐ 役割（コマンダー/調査/営業連絡/レビュアー/ファシリテーター）を決めた
 
 各シナリオ:
-- ☐ `/incident start` で起票、専用チャンネル生成を確認
-- ☐ 初動チェックリストの順に対応
+- ☐ `/incident`（引数なし）で起票、専用チャンネル生成を確認
+- ☐ 初動チェックリストの**ボタンを順に押して**対応（役割ボタンで調査役/営業連絡役を分担）
 - ☐ `/incident status` を段階更新
 - ☐ `/incident end` に具体的な解決方法を記入
 - ☐ ポストモーテム生成・講評（必要ならランブック生成）
@@ -191,4 +209,4 @@ AWS_PROFILE=incident-prod node backend/scripts/set-backlog-mode.mjs on
 事後:
 - ☐ 専用チャンネルをアーカイブ
 - ☐ インシデントレコードを掃除（他に実データが無いことを確認）
-- ☐ Backlog / 通知設定を本番運用に戻した
+- ☐ Backlog / リーダー招待 / 通知設定を本番運用に戻した
