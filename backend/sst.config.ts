@@ -221,6 +221,7 @@ const addRoutes = (
 	slackSecrets: { botToken: sst.Secret; signingSecret: sst.Secret },
 	slackTasks: sst.aws.Queue,
 	autoStartToken: sst.Secret,
+	backlogApiKey: sst.Secret,
 ) => {
 	const defaultLink = [userPool, client, site, appTable];
 
@@ -237,6 +238,7 @@ const addRoutes = (
 			slackSecrets.botToken,
 			slackSecrets.signingSecret,
 			slackTasks,
+			backlogApiKey,
 		],
 	});
 
@@ -375,6 +377,7 @@ export default $config({
 			slackSecrets,
 			slackTasks,
 			autoStartToken,
+			backlogApiKey,
 		);
 		// ローテーション設定（本番・dev共通）
 		if (!$dev) {

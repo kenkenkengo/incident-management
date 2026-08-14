@@ -45,6 +45,7 @@ const toIncident = (item: Record<string, unknown>): Incident => ({
 	impact: item.impact as string | undefined,
 	project: item.project as string | undefined,
 	externalImpact: item.externalImpact as boolean | undefined,
+	backlogIssueKey: item.backlogIssueKey as string | undefined,
 	resolution: item.resolution as string | undefined,
 	status: item.status as "active" | "closed",
 	startedAt: item.startedAt as string,
@@ -549,6 +550,55 @@ export const setBacklogConfig = async (cfg: BacklogConfig): Promise<void> => {
 				...BACKLOG_CONFIG_KEY,
 				enabled: cfg.enabled,
 				projectKey: cfg.projectKey,
+			},
+		}),
+	);
+};
+
+// 連携済み Backlog 課題キーをインシデントに保存する（:memo: 追記に使用）
+export const setBacklogIssueKey = async (
+	incidentId: string,
+	issueKey: string,
+): Promise<void> => {
+	await client.send(
+		new UpdateCommand({
+			TableName: TABLE_NAME,
+			Key: incidentKey(incidentId),
+			UpdateExpression: "SET backlogIssueKey = :k",
+			ExpressionAttributeValues: { ":k": issueKey },
+		}),
+	);
+};
+
+// :memo: による Backlog 追記の重複防止マーカー（発言 ts 単位）
+const backlogCommentKey = (incidentId: string, ts: string) => ({
+	pk: `INCIDENT#${incidentId}`,
+	sk: `BLC#${ts}`,
+});
+
+export const hasBacklogComment = async (
+	incidentId: string,
+	ts: string,
+): Promise<boolean> => {
+	const result = await client.send(
+		new GetCommand({
+			TableName: TABLE_NAME,
+			Key: backlogCommentKey(incidentId, ts),
+		}),
+	);
+	return !!result.Item;
+};
+
+export const saveBacklogComment = async (
+	incidentId: string,
+	ts: string,
+): Promise<void> => {
+	await client.send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...backlogCommentKey(incidentId, ts),
+				at: new Date().toISOString(),
 			},
 		}),
 	);

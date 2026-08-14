@@ -11,6 +11,7 @@ import {
 	create,
 	findActiveBySourceChannel,
 	getInviteConfig,
+	setBacklogIssueKey,
 } from "./incident.repository";
 import type { StatusUpdate } from "./incident.types";
 import { formatMention, parseNotifyConfig } from "./notify.config";
@@ -278,9 +279,16 @@ export const runIncidentStart = async (
 	});
 	if (backlog) {
 		try {
+			await setBacklogIssueKey(incident.id, backlog.issueKey);
+		} catch {
+			// 保存失敗は無視（:memo: 追記が効かなくなるだけ）
+		}
+		try {
 			await client.chat.postMessage({
 				channel: newChannelId ?? channelId,
-				text: `📋 Backlog 課題を作成しました: <${backlog.url}|${backlog.issueKey}>`,
+				text:
+					`📋 Backlog 課題を作成しました: <${backlog.url}|${backlog.issueKey}>\n` +
+					`（残したい発言に :memo: を付けると、この課題のコメントに追記されます）`,
 			});
 		} catch {
 			// 投稿失敗は無視
