@@ -24,7 +24,8 @@ app.event("message", handleMessageEvent);
 app.event("reaction_added", handleReactionAdded);
 app.view("incident_start_modal", handleIncidentStartSubmission);
 app.action(ACTION_STEP, handleChecklistStep);
-app.action(ACTION_ROLE, handleChecklistRole);
+// 役割ボタンは action_id を役割ごとにユニーク化しているため前方一致で受ける
+app.action(new RegExp(`^${ACTION_ROLE}_`), handleChecklistRole);
 
 const asyncHandler = receiver.toHandler();
 

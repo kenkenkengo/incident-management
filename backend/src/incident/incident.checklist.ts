@@ -81,7 +81,8 @@ export const renderChecklistBlocks = (
 		elements: ROLE_DEFS.map((r) => ({
 			type: "button",
 			text: { type: "plain_text", text: `${r.label}に立候補` },
-			action_id: ACTION_ROLE,
+			// 同一 actions ブロック内で action_id は重複不可のため役割ごとにユニーク化
+			action_id: `${ACTION_ROLE}_${r.key}`,
 			value: `${state.incidentId}:${r.key}`,
 		})),
 	});
