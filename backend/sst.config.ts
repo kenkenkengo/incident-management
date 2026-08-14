@@ -359,7 +359,9 @@ export default $config({
 					incidentNotifyConfig,
 					backlogApiKey,
 				],
-				timeout: "60 seconds",
+				// 終了時に Bedrock でトラブル報告を生成するため権限とタイムアウトを付与
+				permissions: [{ actions: ["bedrock:InvokeModel"], resources: ["*"] }],
+				timeout: "120 seconds",
 			},
 			// 1 メッセージ = 1 実行にして、失敗時の再処理で他タスクを
 			// 巻き込まない（チャンネル二重作成などの副作用を防ぐ）

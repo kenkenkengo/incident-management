@@ -195,3 +195,94 @@ export const generatePostmortem = async (
 	// モデルが付与する <reasoning>...</reasoning> の思考ログを除去して返す
 	return stripReasoning(responseBody.choices[0].message.content);
 };
+
+// UTC ISO を JST に変換して表示するヘルパー（Backlog トラブル報告用）
+const toJst = (iso: string): Date =>
+	new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000);
+const jstHm = (iso: string): string => {
+	const d = toJst(iso);
+	return `${String(d.getUTCHours()).padStart(2, "0")}:${String(
+		d.getUTCMinutes(),
+	).padStart(2, "0")}`;
+};
+const jstDateTime = (iso: string): string => {
+	const d = toJst(iso);
+	return `${d.getUTCFullYear()}/${d.getUTCMonth() + 1}/${d.getUTCDate()} :${jstHm(iso)}`;
+};
+
+/**
+ * インシデント終了時に Backlog へ追記する「トラブル報告」を生成する（追記のみ）。
+ * ＜発生日時＞＜時系列＞＜発生事象＞＜原因＞＜影響＞＜対応＞＜今後の対策＞の定型フォーマット。
+ */
+export const generateTroubleReport = async (
+	incident: Incident,
+	messages: readonly IncidentMessage[],
+): Promise<string> => {
+	const messageLog = messages
+		.map((m) => `[${jstHm(m.recordedAt)}] ${m.userName}: ${m.text}`)
+		.join("\n");
+
+	const prompt = `以下はインシデント「${incident.title}」の対応記録です。これをもとに、Backlog課題へ追記する「トラブル報告」を生成してください。
+
+## 出力ルール
+- 以下の見出しを、この順序・この表記（全角山括弧）で必ず出力する。
+- 各見出しの下に内容を記述する。該当情報が無い場合は「（不明）」と書く。
+- JSON・コードブロック・前置き/後置きは付けず、本文のみをプレーンテキストで出力する。
+- 時刻は日本時間(JST)。
+
+＜発生日時＞
+${jstDateTime(incident.startedAt)}
+
+＜時系列＞
+（チャットログを時刻(HH:MM)付きで時系列に要約。各行「HH:MM　内容」の形式）
+
+＜発生事象＞
+（何が起きたか）
+
+＜原因＞
+（根本または直接の原因）
+
+＜影響＞
+（影響範囲）
+
+＜対応＞
+（実施した対応。暫定対応・恒久対応を含める）
+
+＜今後の対策＞
+（再発防止策）
+
+## 参考情報
+- 重大度: ${incident.severity}
+- 影響範囲(入力): ${incident.impact ?? "未記載"}
+- 解決方法(入力): ${incident.resolution ?? "未記載"}
+- 発生: ${jstDateTime(incident.startedAt)} 〜 終了: ${
+		incident.endedAt ? jstDateTime(incident.endedAt) : "対応中"
+	}
+
+## チャットログ（[HH:MM] 発言者: 本文）
+${messageLog || "（記録なし）"}`;
+
+	const requestBody = {
+		messages: [
+			{
+				role: "system",
+				content:
+					"あなたは SRE チームのトラブル報告作成を支援するアシスタントです。指定フォーマットに厳密に従い、簡潔で正確な報告を生成してください。",
+			},
+			{ role: "user", content: prompt },
+		],
+		max_completion_tokens: 4096,
+		temperature: 0.3,
+	};
+
+	const command = new InvokeModelCommand({
+		modelId: MODEL_ID,
+		body: JSON.stringify(requestBody),
+		contentType: "application/json",
+		accept: "application/json",
+	});
+
+	const response = await client.send(command);
+	const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+	return stripReasoning(responseBody.choices?.[0]?.message?.content ?? "");
+};
