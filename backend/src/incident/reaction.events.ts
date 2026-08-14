@@ -9,8 +9,8 @@ import {
 	saveBacklogComment,
 } from "./incident.repository";
 
-// カスタム絵文字 :incident: を付けると、その発言を種にインシデントを起票する
-const INCIDENT_EMOJI = "incident";
+// :sos:（🆘）を付けると、その発言を種にインシデントを起票する
+const INCIDENT_EMOJI = "sos";
 // :memo: を専用チャンネルの発言に付けると、その発言を Backlog 課題へ追記する
 const MEMO_EMOJI = "memo";
 
