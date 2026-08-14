@@ -101,6 +101,8 @@ export const runIncidentStart = async (
 		impact,
 		project,
 		externalImpact,
+		sourceText,
+		sourceLink,
 	} = task;
 
 	// 冪等性ガード: SQS の再配信や二重送信で同じタスクが複数回実行されても、
@@ -182,6 +184,7 @@ export const runIncidentStart = async (
 		(project ? `*案件・顧客:* ${project}\n` : "") +
 		(externalImpact ? `*対外影響:* ⚠️ あり（顧客・対外に影響）\n` : "") +
 		(impact ? `*影響範囲:* ${impact}\n` : "") +
+		(sourceLink ? `*元メッセージ:* ${sourceLink}\n` : "") +
 		`*起票者:* ${reporter}\n` +
 		`*開始:* ${incident.startedAt}` +
 		runbookSection;
@@ -269,6 +272,8 @@ export const runIncidentStart = async (
 		...(impact !== undefined && { impact }),
 		...(project !== undefined && { project }),
 		...(externalImpact !== undefined && { externalImpact }),
+		...(sourceText !== undefined && { sourceText }),
+		...(sourceLink !== undefined && { sourceLink }),
 	});
 	if (backlog) {
 		try {

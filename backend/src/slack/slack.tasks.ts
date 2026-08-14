@@ -20,6 +20,9 @@ export type SlackTask =
 			readonly impact?: string;
 			readonly project?: string;
 			readonly externalImpact?: boolean;
+			// リアクション起票の元メッセージ（Backlog課題の初期起票に使用）
+			readonly sourceText?: string;
+			readonly sourceLink?: string;
 	  }
 	| {
 			readonly kind: "incident_end";

@@ -158,6 +158,9 @@ export interface BacklogIssueInput {
 	readonly project?: string;
 	readonly externalImpact?: boolean;
 	readonly incidentUrl?: string;
+	// リアクション起票の元メッセージ（本文・パーマリンク）
+	readonly sourceText?: string;
+	readonly sourceLink?: string;
 }
 
 // SEV → Backlog 優先度ID（high=2 / medium=3 / low=4）
@@ -188,7 +191,9 @@ export const createIncidentBacklogIssue = async (
 			(input.project ? `案件・顧客: ${input.project}\n` : "") +
 			(input.externalImpact ? `対外影響: あり\n` : "") +
 			(input.impact ? `影響範囲: ${input.impact}\n` : "") +
-			(input.incidentUrl ? `詳細: ${input.incidentUrl}\n` : "");
+			(input.incidentUrl ? `詳細: ${input.incidentUrl}\n` : "") +
+			(input.sourceText ? `\n元メッセージ:\n${input.sourceText}\n` : "") +
+			(input.sourceLink ? `${input.sourceLink}\n` : "");
 
 		const body = new URLSearchParams({
 			projectId: String(projectId),
