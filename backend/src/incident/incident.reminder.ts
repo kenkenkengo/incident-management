@@ -54,7 +54,7 @@ const sendReminder = async (
 ): Promise<void> => {
 	const text =
 		type === "2h"
-			? "⏰ このインシデントは2時間更新がありません。\n現在の状況を `/incident status` で更新するか、解決済みなら `/incident end` してください。"
+			? "⏰ このインシデントは2時間、専用チャンネルで発言がありません。\n進捗をチャンネルに共有するか、解決済みなら `/incident end` でクローズしてください。"
 			: "⚠️ このインシデントは24時間以上オープンです。\n対応状況を確認してください。";
 
 	await slackClient.chat.postMessage({
