@@ -1,4 +1,4 @@
-# Generosity Incident Management
+# Incident Management
 
 Slack 連携のインシデント管理システム。Slack Bot でインシデントの開始/終了・メッセージ記録を行い、Web アプリで閲覧・ポストモーテム自動生成ができる。
 
