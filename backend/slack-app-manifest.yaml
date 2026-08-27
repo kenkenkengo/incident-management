@@ -34,6 +34,7 @@ oauth_config:
       - pins:write # サマリーのピン留め
       - users:read # 投稿者名の解決(users.info)
       - reactions:read # :memo: リアクションの受信（発言をBacklogへ追記）
+      - channels:join # 新規パブリックチャンネルへの自動参加
 settings:
   event_subscriptions:
     request_url: https://jdei9mq01m.execute-api.ap-northeast-1.amazonaws.com/slack/events
@@ -41,6 +42,7 @@ settings:
       - message.channels # パブリック専用チャンネルでの発言を記録
       - message.groups # プライベート専用チャンネルでの発言を記録(必要な場合)
       - reaction_added # :memo: を付けた発言をBacklogへ追記
+      - channel_created # 新規パブリックチャンネル作成を検知してBotを自動参加させる
   interactivity:
     is_enabled: true # モーダル(view_submission)受信に必須
     request_url: https://jdei9mq01m.execute-api.ap-northeast-1.amazonaws.com/slack/events
